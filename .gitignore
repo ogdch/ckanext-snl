@@ -11,4 +11,4 @@ development.ini
 .DS_Store
 *.swp
 *~
-ckanext/snl/record*
+OGD_Metadaten_NB.xlsx
