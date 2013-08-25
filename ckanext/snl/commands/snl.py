@@ -15,9 +15,17 @@ class SNLCommand(ckan.lib.cli.CkanCommand):
         # Export the oai entries for the specified set
         paster --plugin=ckanext-snl snl export <set name> -c <path to config file>
 
+        # Resume export of the oai entries for the specified set
+        paster --plugin=ckanext-snl snl resume <set name> <start record count> <limit record count> -c <path to config file>
+
     '''
     summary = __doc__.split('\n')[0]
     usage = __doc__
+
+    APPEND_SETS = [
+        'NewBib',
+        'sb'
+    ]
 
     def command(self):
         # load pylons config
@@ -43,17 +51,17 @@ class SNLCommand(ckan.lib.cli.CkanCommand):
     def exportCmd(self, set_name):
         oai_helper = oai.OAI('ch.nb')
         append = True if set_name == 'NewBib' else False
-        oai_helper.export(set_name, append)
+        print oai_helper.export(set_name, append)
 
     def resumeCmd(self, set_name, count, limit=None):
         oai_helper = oai.OAI('ch.nb')
-        append = True if set_name == 'NewBib' else False
+        append = True if set_name in self.APPEND_SETS else False
         count = int(count)
         try:
             limit = int(limit)
         except ValueError:
             limit = None
-        oai_helper.resume_export(set_name, append, count, limit)
+        print oai_helper.resume_export(set_name, append, count, limit)
 
     def dumpCmd(self, set_name):
         oai_helper = oai.OAI('ch.nb')

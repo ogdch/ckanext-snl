@@ -56,9 +56,10 @@ class OAI():
 
     def export(self, set_name, append=False, params=None, count=0, limit=None, export_filename='records.xml'):
         log.debug('Starting to export set %s' % set_name)
-        actual_set_name = set_name if not append else 'NewBib'
+        actual_set_name = set_name
 
         if params is None:
+            actual_set_name = set_name if not append else 'NewBib'
             params = {
                 'set': actual_set_name,
                 'metadataPrefix': 'marcxml',
@@ -69,7 +70,7 @@ class OAI():
         temp_dir = tempfile.mkdtemp()
         log.debug('Temporary directory created: %s' % temp_dir)
 
-        if (append):
+        if (append and limit is None):
             log.debug('Copy content from bucket to append new data...')
             step_files = self._dump_s3_bucket_to_dir(set_name, temp_dir)
             prev_export_file = os.path.join(temp_dir, export_filename)
@@ -78,6 +79,7 @@ class OAI():
             except ValueError:
                 pass
 
+        log.debug('Params: %s' % params)
         for header, metadata, about in self.client.listRecords(**params):
             # check if we use NewBib to add only new entries
             if (actual_set_name != set_name and set_name != 'NewBib'):
@@ -118,16 +120,18 @@ class OAI():
             log.debug('Create step file %s' % count)
             step_files.append(self._create_step_file(str(count) + '_' + today, temp_dir, set_name, filenames))
 
-        if (limit is None):
-            record_filename = os.path.join(temp_dir, export_filename)
-            log.debug('Record file: %s' % record_filename)
-            self._concatenate_xml_files(record_filename, step_files)
+        if (limit is not None):
+            return step_files
 
-            if (append):
-                self._upload_dir_content_to_s3(set_name, temp_dir)
-            else:
-                self._upload_file_to_s3(set_name, temp_dir, export_filename)
-            shutil.rmtree(temp_dir);
+        record_filename = os.path.join(temp_dir, export_filename)
+        log.debug('Record file: %s' % record_filename)
+        self._concatenate_xml_files(record_filename, step_files)
+
+        if (append):
+            self._upload_dir_content_to_s3(set_name, temp_dir)
+        else:
+            self._upload_file_to_s3(set_name, temp_dir, export_filename)
+        shutil.rmtree(temp_dir);
 
         return self._get_url_of_file(set_name, export_filename)
 
