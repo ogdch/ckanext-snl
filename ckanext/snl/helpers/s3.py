@@ -27,13 +27,14 @@ class S3():
         for key in self.list(prefix):
             yield key.name.encode('utf-8')
 
-    def download_bucket_to_dir(self, bucket_name, dir_name):
+    def download_bucket_to_dir(self, prefix, dir_name, ignore=None):
         files = []
-        prefix = bucket_name + '/'
         for key in self.list(prefix):
-            dump_file = os.path.join(dir_name, key.name.replace(prefix, '').encode('utf-8'))
-            key.get_contents_to_filename(dump_file)
-            files.append(dump_file)
+            filename = key.name.replace(prefix, '').encode('utf-8')
+            if (ignore is not None and filename not in ignore):
+                dump_file = os.path.join(dir_name, filename)
+                key.get_contents_to_filename(dump_file)
+                files.append(dump_file)
         return files
 
     def get_url_of_file(self, bucket_name, filename):

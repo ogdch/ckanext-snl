@@ -41,9 +41,9 @@ class OAI():
         bucket_name = self.bucket_prefix + '.' + set_name
         self.s3.upload_file_to_bucket(bucket_name, dir_name, filename)
 
-    def _dump_s3_bucket_to_dir(self, set_name, dir_name):
-        bucket_name = self.bucket_prefix + '.' + set_name
-        return self.s3.download_bucket_to_dir(bucket_name, dir_name)
+    def _dump_s3_bucket_to_dir(self, set_name, dir_name, ignore=None):
+        prefix = self.bucket_prefix + '.' + set_name + '/'
+        return self.s3.download_bucket_to_dir(prefix, dir_name, ignore)
 
     def _get_url_of_file(self, set_name, filename):
         bucket_name = self.bucket_prefix + '.' + set_name
@@ -72,7 +72,7 @@ class OAI():
 
         if (append and limit is None):
             log.debug('Copy content from bucket to append new data...')
-            step_files = self._dump_s3_bucket_to_dir(set_name, temp_dir)
+            step_files = self._dump_s3_bucket_to_dir(set_name, temp_dir, ignore=[export_filename])
             prev_export_file = os.path.join(temp_dir, export_filename)
             try:
                 step_files.remove(prev_export_file)
