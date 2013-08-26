@@ -128,8 +128,10 @@ class OAI():
         self._concatenate_xml_files(record_filename, step_files)
 
         if (append):
+            log.debug('Uploading dir %s to S3' % temp_dir)
             self._upload_dir_content_to_s3(set_name, temp_dir)
         else:
+            log.debug('Uploading %s from %s to S3' % (export_filename, temp_dir))
             self._upload_file_to_s3(set_name, temp_dir, export_filename)
         shutil.rmtree(temp_dir);
 
