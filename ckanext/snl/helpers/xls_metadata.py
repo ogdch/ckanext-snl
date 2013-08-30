@@ -28,7 +28,7 @@ class MetaDataParser(object):
         'author',
         'maintainer',
         'maintainer_email',
-        'license',
+        'license_id',
         'license_url',
         'tags',
     )
@@ -120,9 +120,6 @@ class MetaDataParser(object):
         return resources
 
     def _handle_license(self, metadata):
-        if 'license_id' not in metadata and 'license' in metadata:
-            metadata['license_id'] = metadata['license']
-
         if (metadata['license_id'] == 'CCO'):
             metadata['license_id'] = 'cc-zero'
 
