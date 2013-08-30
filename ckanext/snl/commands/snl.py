@@ -48,13 +48,13 @@ class SNLCommand(ckan.lib.cli.CkanCommand):
     def helpCmd(self):
         print self.__doc__
 
-    def exportCmd(self, set_name):
-        oai_helper = oai.OAI('ch.nb')
+    def exportCmd(self, set_name, oai_url='http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'):
+        oai_helper = oai.OAI('ch.nb', oai_url)
         append = True if set_name == 'NewBib' else False
         print oai_helper.export(set_name, append)
 
-    def resumeCmd(self, set_name, count, limit=None):
-        oai_helper = oai.OAI('ch.nb')
+    def resumeCmd(self, set_name, count, limit=None, oai_url='http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'):
+        oai_helper = oai.OAI('ch.nb', oai_url)
         append = True if set_name in self.APPEND_SETS else False
         count = int(count)
         try:

@@ -36,10 +36,10 @@ class SNLHarvester(HarvesterBase):
     METADATA_FILE_NAME = 'OGD_Metadaten_NB.xlsx'
 
     SHEETS = (
-        (u'NB-BSG', u'NewBib', True),
-        (u'NB-SB', u'sb', True),
-        (u'NB-e-diss', u'e-diss', False),
-        (u'NB-digicoll', 'digicoll', False),
+        (u'NB-BSG', u'NewBib', True, 'http://opac.admin.ch/cgi-bin/biblioai/VTLS/Vortex.pl'),
+        (u'NB-SB', u'sb', True, 'http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'),
+        (u'NB-e-diss', u'e-diss', False, 'http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'),
+        (u'NB-digicoll', 'digicoll', False, 'http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'),
     )
 
     ORGANIZATION = {
@@ -80,7 +80,7 @@ class SNLHarvester(HarvesterBase):
 
         self._fetch_metadata_file()
         ids = []
-        for sheet_name, set_name, append in self.SHEETS:
+        for sheet_name, set_name, appenad, oai_url in self.SHEETS:
             log.debug('Gathering %s' % sheet_name)
 
             parser = MetaDataParser(self.METADATA_FILE_NAME)
@@ -90,8 +90,8 @@ class SNLHarvester(HarvesterBase):
             metadata['sheet_name'] = sheet_name
             metadata['set_name'] = set_name
             metadata['append_data'] = append
+            metadata['oai_url'] = oai_url
             log.debug(metadata)
-            
 
             obj = HarvestObject(
                 #guid = metadata.get('id'),
@@ -109,7 +109,9 @@ class SNLHarvester(HarvesterBase):
         log.debug('In SNLHarvester fetch_stage')
         package_dict = json.loads(harvest_object.content)
 
-        oai_helper = oai.OAI('ch.nb')
+        #oai_url = package_dict.get('extra_harvester_url', 'http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl')
+        oai_url = package_dict['oai_url']
+        oai_helper = oai.OAI('ch.nb', oai_url)
         record_file_url = oai_helper.export(package_dict['set_name'], package_dict['append_data'])
         log.debug('Record file URL: %s' % record_file_url)
         package_dict['resources'][0]['url'] = record_file_url
@@ -146,6 +148,9 @@ class SNLHarvester(HarvesterBase):
             # Never import state from data source!
             if 'state' in package_dict:
                 del package_dict['state']
+
+            if 'extra_harvester_url' in package_dict:
+                del package_dict['extra_harvester_url']
 
             # Split tags
             tags = package_dict.get('tags', '').split(',')
