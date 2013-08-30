@@ -80,7 +80,7 @@ class SNLHarvester(HarvesterBase):
 
         self._fetch_metadata_file()
         ids = []
-        for sheet_name, set_name, appenad, oai_url in self.SHEETS:
+        for sheet_name, set_name, append, oai_url in self.SHEETS:
             log.debug('Gathering %s' % sheet_name)
 
             parser = MetaDataParser(self.METADATA_FILE_NAME)
