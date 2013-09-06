@@ -4,3 +4,5 @@ lxml==2.2.4
 boto==2.8.0
 mock==1.0.1
 pyoai==2.4.4
+urllib3==1.6.0
+xlrd==0.9.2
