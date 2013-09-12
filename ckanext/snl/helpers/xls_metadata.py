@@ -53,6 +53,9 @@ class MetaDataParser(object):
         rows = self._get_row_dict_array(sheet_name)
 
         metadata = self._build_dataset_dict(rows)
+	
+	if 'name' in metadata:
+	    metadata['name'] = munge_tag(metadata['name'])
         metadata['resources'] = self._build_resources_list(rows)
         metadata = self._handle_license(metadata)
         metadata['translations'] = self._build_term_translations(rows)
