@@ -62,9 +62,12 @@ class SNLHarvester(HarvesterBase):
         http = urllib3.PoolManager()
 
         log.debug('Fetch metadata file from %s' % self.METADATA_FILE_URL)
+	temp_dir = tempfile.mkdtemp()
+	local_path = os.path.join(temp_dir, self.METADATA_FILE_NAME)
         metadata_file = http.request('GET', self.METADATA_FILE_URL)
-        with open(self.METADATA_FILE_NAME, 'w') as local_file:
+        with open(local_path, 'w') as local_file:
             local_file.write(metadata_file.data)
+        return local_path
 
 
     def info(self):
@@ -78,12 +81,12 @@ class SNLHarvester(HarvesterBase):
     def gather_stage(self, harvest_job):
         log.debug('In SNLHarvester gather_stage')
 
-        self._fetch_metadata_file()
+        metadata_path = self._fetch_metadata_file()
         ids = []
         for sheet_name, set_name, append, oai_url in self.SHEETS:
             log.debug('Gathering %s' % sheet_name)
 
-            parser = MetaDataParser(self.METADATA_FILE_NAME)
+            parser = MetaDataParser(metadata_path)
 
             metadata = parser.parse_sheet(sheet_name)
             metadata['translations'].extend(self._metadata_term_translations())
