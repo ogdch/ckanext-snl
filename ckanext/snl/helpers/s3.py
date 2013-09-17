@@ -50,6 +50,8 @@ class S3():
         key = Key(self.bucket)
         key.key = bucket_name + '/' + filename
         key.set_contents_from_filename(os.path.join(dir_name, filename))
+        # Copy the key onto itself, preserving the ACL but changing the content-type
+        key.copy(key.bucket, key.name, preserve_acl=True, metadata={'Content-Type': 'binary/octet-stream'})
 
 
 class ConfigEntryNotFoundError(Exception):
