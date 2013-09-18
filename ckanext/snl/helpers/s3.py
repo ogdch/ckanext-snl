@@ -51,7 +51,15 @@ class S3():
         key.key = bucket_name + '/' + filename
         key.set_contents_from_filename(os.path.join(dir_name, filename))
         # Copy the key onto itself, preserving the ACL but changing the content-type
-        key.copy(key.bucket, key.name, preserve_acl=True, metadata={'Content-Type': 'binary/octet-stream'})
+        key.copy(
+                key.bucket, 
+                key.name, 
+                preserve_acl=True, 
+                metadata = {
+                    'Content-Type': 'binary/octet-stream',
+                    'Content-Disposition': 'attachment; filename="%s"' % key.name
+                }
+        )
 
 
 class ConfigEntryNotFoundError(Exception):
