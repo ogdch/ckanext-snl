@@ -57,7 +57,7 @@ class S3():
                 preserve_acl=True, 
                 metadata = {
                     'Content-Type': 'binary/octet-stream',
-                    'Content-Disposition': 'attachment; filename="%s"' % key.name
+                    'Content-Disposition': 'attachment; filename="%s"' % filename
                 }
         )
 
