@@ -211,9 +211,9 @@ class SNLHarvester(HarvesterBase):
         try:
             data_dict = {
                 'permission': 'edit_group',
-                'id': munge_title_to_name(self.ORGANIZATION['de']),
-                'name': munge_title_to_name(self.ORGANIZATION['de']),
-                'title': self.ORGANIZATION['de'],
+                'id': munge_title_to_name(self.ORGANIZATION['de']['name']),
+                'name': munge_title_to_name(self.ORGANIZATION['de']['name']),
+                'title': self.ORGANIZATION['de']['name'],
                 'description': self.ORGANIZATION['de']['description'],
                 'extras': [
                     {
