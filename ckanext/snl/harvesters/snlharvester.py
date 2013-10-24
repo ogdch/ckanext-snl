@@ -44,11 +44,25 @@ class SNLHarvester(HarvesterBase):
     )
 
     ORGANIZATION = {
-        u'de': u'Schweizerische Nationalbibliothek',
-        u'fr': u'Bibliothèque nationale suisse',
-        u'it': u'Biblioteca nazionale svizzera',
-        u'en': u'Swiss National Library',
+        u'de': {
+            'name': u'Schweizerische Nationalbibliothek',
+            'description': u'Sammelt alle Schweizer Publikationen seit 1848. Ebenfalls zur Nationalbibliothek gehören das Schweizerische Literaturarchiv, die Graphische Sammlung und das Centre Dürrenmatt.',
+            'website': 'http://www.nb.admin.ch/'
+        },
+        u'fr': {
+            'name': u'Bibliothèque nationale suisse',
+            'description': u'Collecte l’ensemble des publications suisses depuis 1848. Les Archives littéraires suisses, le Cabinet des estampes et le Centre Dürrenmatt font également partie de la Bibliothèque nationale.'
+        },
+        u'it': {
+            'name': u'Biblioteca nazionale svizzera',
+            'description': u'Colleziona tutte le pubblicazioni a partire dal 1848. Alla Biblioteca nazionale sono accorpati l\'Archivio svizzero di letteratura, il Gabinetto delle stampe e il Centre Dürrenmatt.'
+        },
+        u'en': {
+            'name': u'Swiss National Library',
+            'description': u'Collects all Swiss publications since 1848. The Swiss Literary Archives, the Cabinet of Prints and Drawings and the Centre Dürrenmatt also belong to the National Library.'
+        }
     }
+
     GROUPS = {
         u'de': [u'Bildung und Wissenschaft'],
         u'fr': [u'Education et science'],
@@ -63,8 +77,8 @@ class SNLHarvester(HarvesterBase):
         http = urllib3.PoolManager()
 
         log.debug('Fetch metadata file from %s' % self.METADATA_FILE_URL)
-	temp_dir = tempfile.mkdtemp()
-	local_path = os.path.join(temp_dir, self.METADATA_FILE_NAME)
+        temp_dir = tempfile.mkdtemp()
+        local_path = os.path.join(temp_dir, self.METADATA_FILE_NAME)
         metadata_file = http.request('GET', self.METADATA_FILE_URL)
         with open(local_path, 'w') as local_file:
             local_file.write(metadata_file.data)
@@ -106,7 +120,7 @@ class SNLHarvester(HarvesterBase):
             obj.save()
             ids.append(obj.id)
 
-        return ids 
+        return ids
 
 
     def fetch_stage(self, harvest_object):
@@ -122,7 +136,7 @@ class SNLHarvester(HarvesterBase):
 
         harvest_object.content = json.dumps(package_dict)
         harvest_object.save()
-        
+
         return True
 
     def import_stage(self, harvest_object):
@@ -197,9 +211,16 @@ class SNLHarvester(HarvesterBase):
         try:
             data_dict = {
                 'permission': 'edit_group',
-                'id': munge_title_to_name(self.ORGANIZATION[u'de']),
-                'name': munge_title_to_name(self.ORGANIZATION[u'de']),
-                'title': self.ORGANIZATION[u'de']
+                'id': munge_title_to_name(self.ORGANIZATION['de']),
+                'name': munge_title_to_name(self.ORGANIZATION['de']),
+                'title': self.ORGANIZATION['de'],
+                'description': self.ORGANIZATION['de']['description'],
+                'extras': [
+                    {
+                        'key': 'website',
+                        'value': self.ORGANIZATION['de']['website']
+                    }
+                ]
             }
             organization = get_action('organization_show')(context, data_dict)
         except:
@@ -215,11 +236,12 @@ class SNLHarvester(HarvesterBase):
 
             for lang, org in self.ORGANIZATION.items():
                 if lang != u'de':
-                    translations.append({
-                        'lang_code': lang,
-                        'term': self.ORGANIZATION[u'de'],
-                        'term_translation': org
-                    })
+                    for field in ['name', 'description']:
+                        translations.append({
+                            'lang_code': lang,
+                            'term': self.ORGANIZATION['de'][field],
+                            'term_translation': org[field]
+                        })
 
             for lang, groups in self.GROUPS.iteritems():
                 if lang != u'de':
