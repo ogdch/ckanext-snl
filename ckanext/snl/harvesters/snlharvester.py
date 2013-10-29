@@ -208,20 +208,20 @@ class SNLHarvester(HarvesterBase):
         return group_ids
 
     def _find_or_create_organization(self, context):
+        data_dict = {
+            'permission': 'edit_group',
+            'id': munge_title_to_name(self.ORGANIZATION['de']['name']),
+            'name': munge_title_to_name(self.ORGANIZATION['de']['name']),
+            'title': self.ORGANIZATION['de']['name'],
+            'description': self.ORGANIZATION['de']['description'],
+            'extras': [
+                {
+                    'key': 'website',
+                    'value': self.ORGANIZATION['de']['website']
+                }
+            ]
+        }
         try:
-            data_dict = {
-                'permission': 'edit_group',
-                'id': munge_title_to_name(self.ORGANIZATION['de']['name']),
-                'name': munge_title_to_name(self.ORGANIZATION['de']['name']),
-                'title': self.ORGANIZATION['de']['name'],
-                'description': self.ORGANIZATION['de']['description'],
-                'extras': [
-                    {
-                        'key': 'website',
-                        'value': self.ORGANIZATION['de']['website']
-                    }
-                ]
-            }
             organization = get_action('organization_show')(context, data_dict)
         except:
             organization = get_action('organization_create')(context, data_dict)
