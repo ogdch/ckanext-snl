@@ -120,7 +120,10 @@ class SNLHarvester(HarvesterBase):
             obj.save()
             ids.append(obj.id)
 
-        return ids
+        temp_dir = os.path.dirname(metadata_path)
+        shutil.rmtree(temp_dir);
+
+        return ids 
 
 
     def fetch_stage(self, harvest_object):
