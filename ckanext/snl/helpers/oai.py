@@ -2,7 +2,6 @@ from oaipmh.client import Client
 from oaipmh.metadata import MetadataRegistry
 from metadata import XMLMetadataReader
 from lxml import etree
-from StringIO import StringIO
 from resumption import ResumptionClient
 import os
 import tempfile
@@ -12,9 +11,13 @@ import s3
 import logging
 log = logging.getLogger(__name__)
 
+
 class OAI():
 
-    def __init__(self, bucket_prefix, url='http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'):
+    def __init__(
+            self,
+            bucket_prefix,
+            url='http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'):
         self.registry = MetadataRegistry()
         self.url = url
         xml_reader = XMLMetadataReader()
@@ -23,15 +26,19 @@ class OAI():
         self.s3 = s3.S3()
         self.bucket_prefix = bucket_prefix
 
-    def _concatenate_xml_files(self, output_filename, filenames, wrap='records'):
+    def _concatenate_xml_files(
+            self,
+            output_filename,
+            filenames,
+            wrap='records'):
         with open(output_filename, 'w') as outfile:
             if wrap is not None:
-                outfile.write('<' + wrap + '>\n');
+                outfile.write('<' + wrap + '>\n')
             for filename in filenames:
                 with open(filename) as infile:
                     outfile.write(infile.read())
             if wrap is not None:
-                outfile.write('</' + wrap + '>');
+                outfile.write('</' + wrap + '>')
 
     def _upload_dir_content_to_s3(self, set_name, dir_name):
         bucket_name = self.bucket_prefix + '.' + set_name
@@ -48,13 +55,19 @@ class OAI():
     def _get_url_of_file(self, set_name, filename):
         bucket_name = self.bucket_prefix + '.' + set_name
         return self.s3.get_url_of_file(bucket_name, filename)
-        
 
     def dump(self, set_name):
         temp_dir = tempfile.mkdtemp()
         print self._dump_s3_bucket_to_dir(set_name, temp_dir)
 
-    def export(self, set_name, append=False, params=None, count=0, limit=None, export_filename='records.xml'):
+    def export(
+            self,
+            set_name,
+            append=False,
+            params=None,
+            count=0,
+            limit=None,
+            export_filename='records.xml'):
         log.debug('Starting to export set %s' % set_name)
         actual_set_name = set_name
 
@@ -72,7 +85,11 @@ class OAI():
 
         if (append and limit is None):
             log.debug('Copy content from bucket to append new data...')
-            step_files = self._dump_s3_bucket_to_dir(set_name, temp_dir, ignore=[export_filename])
+            step_files = self._dump_s3_bucket_to_dir(
+                set_name,
+                temp_dir,
+                ignore=[export_filename]
+            )
             prev_export_file = os.path.join(temp_dir, export_filename)
             try:
                 step_files.remove(prev_export_file)
@@ -85,11 +102,20 @@ class OAI():
             if (actual_set_name != set_name and set_name != 'NewBib'):
                 try:
                     xml_namespaces = {
-                            'marc': 'http://www.loc.gov/MARC21/slim',
+                        'marc': 'http://www.loc.gov/MARC21/slim',
                     }
-                    record_type = etree.XPath(".//marc:datafield[@tag='993']/marc:subfield[@code='a']", namespaces=xml_namespaces)
+                    record_type = etree.XPath(
+                        (
+                            ".//marc:datafield[@tag='993']"
+                            "/marc:subfield[@code='a']"
+                        ),
+                        namespaces=xml_namespaces
+                    )
                     if record_type(metadata)[0].text != set_name:
-                        log.debug('Record does not belong to set %s' % set_name)
+                        log.debug(
+                            'Record does not belong to set %s'
+                            % set_name
+                        )
                         continue
                 except IndexError:
                     log.debug('Record does not belong to set %s' % set_name)
@@ -97,19 +123,28 @@ class OAI():
 
             count += 1
             today = datetime.date.today().strftime("%Y-%m-%d")
-            log.debug('Fetching record %s from set %s: %s' % (count, set_name, header.identifier()))
-            
-            # save record as XML file 
+            log.debug(
+                'Fetching record %s from set %s: %s'
+                % (count, set_name, header.identifier())
+            )
+
+            # save record as XML file
             newRecord = etree.Element("record")
             newRecord.append(metadata)
             tree = etree.ElementTree(newRecord)
             filename = os.path.join(temp_dir, header.identifier() + '.xml')
-            filenames.append(filename) 
+            filenames.append(filename)
             tree.write(filename, pretty_print=True)
 
             if (count % 500 == 0):
                 log.debug('Create step file %s' % count)
-                step_files.append(self._create_step_file(str(count) + '_' + today, temp_dir, set_name, filenames))
+                step_files.append(
+                    self._create_step_file(
+                        str(count) + '_' + today,
+                        temp_dir,
+                        set_name, filenames
+                    )
+                )
                 filenames = []
 
             if (limit is not None and count >= limit):
@@ -118,7 +153,14 @@ class OAI():
         if filenames:
             today = datetime.date.today().strftime("%Y-%m-%d")
             log.debug('Create step file %s' % count)
-            step_files.append(self._create_step_file(str(count) + '_' + today, temp_dir, set_name, filenames))
+            step_files.append(
+                self._create_step_file(
+                    str(count) + '_' + today,
+                    temp_dir,
+                    set_name,
+                    filenames
+                )
+            )
 
         if (limit is not None):
             return step_files
@@ -131,19 +173,24 @@ class OAI():
             log.debug('Uploading dir %s to S3' % temp_dir)
             self._upload_dir_content_to_s3(set_name, temp_dir)
         else:
-            log.debug('Uploading %s from %s to S3' % (export_filename, temp_dir))
+            log.debug(
+                'Uploading %s from %s to S3'
+                % (export_filename, temp_dir)
+            )
             self._upload_file_to_s3(set_name, temp_dir, export_filename)
-        shutil.rmtree(temp_dir);
+        shutil.rmtree(temp_dir)
 
         return self._get_url_of_file(set_name, export_filename)
 
     def _create_step_file(self, step_name, dir_name, set_name, filenames):
-            step_file = os.path.join(dir_name, set_name + '_' + step_name + '.xml_part')
+            step_file = os.path.join(
+                dir_name,
+                set_name + '_' + step_name + '.xml_part'
+            )
             self._concatenate_xml_files(step_file, filenames, wrap=None)
             for filename in filenames:
                 os.remove(filename)
             return step_file
-
 
     def resume_export(self, set_name, append, count, limit):
         params = {
@@ -151,4 +198,3 @@ class OAI():
         }
         self.client = ResumptionClient(self.url, 'marcxml', self.registry)
         self.export(set_name, append, params, count, limit)
-

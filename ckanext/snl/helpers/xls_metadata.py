@@ -4,6 +4,7 @@ log = logging.getLogger(__name__)
 
 from ckanext.harvest.harvesters.base import munge_tag
 
+
 class MetaDataParser(object):
 
     # Mapping of the rows in the xls to dict keys
@@ -19,7 +20,7 @@ class MetaDataParser(object):
     )
 
     # Only these attributes will be imported into dataset
-    DATASET_ATTRIBUTES =(
+    DATASET_ATTRIBUTES = (
         'id',
         'name',
         'title',
@@ -34,7 +35,7 @@ class MetaDataParser(object):
     )
 
     # Only these attributes will be imported into resource
-    RESOURCE_ATTRIBUTES =(
+    RESOURCE_ATTRIBUTES = (
         'url',
         'name',
         'description',
@@ -53,15 +54,14 @@ class MetaDataParser(object):
         rows = self._get_row_dict_array(sheet_name)
 
         metadata = self._build_dataset_dict(rows)
-	
-	if 'name' in metadata:
-	    metadata['name'] = munge_tag(metadata['name'])
-        metadata['resources'] = self._build_resources_list(rows)
-        metadata = self._handle_license(metadata)
-        metadata['translations'] = self._build_term_translations(rows)
+
+        if 'name' in metadata:
+            metadata['name'] = munge_tag(metadata['name'])
+            metadata['resources'] = self._build_resources_list(rows)
+            metadata = self._handle_license(metadata)
+            metadata['translations'] = self._build_term_translations(rows)
 
         return metadata
-
 
     def _get_row_dict_array(self, sheet_name):
         '''
@@ -108,7 +108,7 @@ class MetaDataParser(object):
         Create a list from all resources in the rows
         '''
         current = {}
-        resources = [current,]
+        resources = [current, ]
         for row in rows:
             if row.get('ckan_entity') == 'Resource' and \
                row.get('ckan_attribute') in self.RESOURCE_ATTRIBUTES:
@@ -134,15 +134,16 @@ class MetaDataParser(object):
         """
         translations = []
         for row in rows:
+            entity = row.get('ckan_entity')
+            key = row.get('ckan_attribute')
             # ignore translations for unuused fields
-            if row.get('ckan_entity') == 'Dataset' and row.get('ckan_attribute') not in self.DATASET_ATTRIBUTES:
-                log.debug('Omit dataset attribute %s' % row.get('ckan_attribute', 'n/a'))
+            if (entity == 'Dataset' and key not in self.DATASET_ATTRIBUTES):
+                log.debug('Omit dataset attribute %s' % (key, 'n/a'))
                 continue
-            if row.get('ckan_entity') == 'Resource' and row.get('ckan_attribute') not in self.RESOURCE_ATTRIBUTES:
-                log.debug('Omit resource attribute %s' % row.get('ckan_attribute', 'n/a'))
+            if entity == 'Resource' and key not in self.RESOURCE_ATTRIBUTES:
+                log.debug('Omit resource attribute %s' % (key, 'n/a'))
                 continue
 
-            key = row.get('ckan_attribute')
             log.debug('Create translation for %s' % key)
             values = dict(((lang, row.get('value_%s' % lang))
                           for lang in ('de', 'fr', 'it', 'en')))
@@ -158,19 +159,28 @@ class MetaDataParser(object):
 
                         if len(split_term) == len(split_trans):
                             for term, trans in zip(split_term, split_trans):
-                                log.debug('Term (tag): %s, Translation (%s): %s' % (term, lang, trans))
+                                log.debug(
+                                    'Term (tag): %s, Translation (%s): %s'
+                                    % (term, lang, trans)
+                                )
                                 translations.append({
-                                   u'lang_code': lang,
-                                   u'term': munge_tag(term),
-                                   u'term_translation': munge_tag(trans)
+                                    u'lang_code': lang,
+                                    u'term': munge_tag(term),
+                                    u'term_translation': munge_tag(trans)
                                 })
                         else:
-                            log.error('Tag count mismatch: %s (de), %s (%s)' % (len(split_term), len(split_trans), lang))
+                            log.error(
+                                'Tag count mismatch: %s (de), %s (%s)'
+                                % (len(split_term), len(split_trans), lang)
+                            )
                     else:
-                        log.debug('Term: %s, Translation (%s): %s' % (term, lang, trans))
+                        log.debug(
+                            'Term: %s, Translation (%s): %s'
+                            % (term, lang, trans)
+                        )
                         translations.append({
-                           u'lang_code': lang,
-                           u'term': term,
-                           u'term_translation': trans
+                            u'lang_code': lang,
+                            u'term': term,
+                            u'term_translation': trans
                         })
         return translations
