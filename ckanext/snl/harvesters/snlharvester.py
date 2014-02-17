@@ -3,6 +3,7 @@
 import os
 import tempfile
 import urllib3
+import shutil
 
 from ckan import model
 from ckan.model import Session
@@ -153,9 +154,9 @@ class SNLHarvester(HarvesterBase):
             ids.append(obj.id)
 
         temp_dir = os.path.dirname(metadata_path)
-        shutil.rmtree(temp_dir);
+        shutil.rmtree(temp_dir)
 
-        return ids 
+        return ids
 
     def fetch_stage(self, harvest_object):
         log.debug('In SNLHarvester fetch_stage')
