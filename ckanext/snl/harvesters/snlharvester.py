@@ -170,7 +170,10 @@ class SNLHarvester(HarvesterBase):
         )
         log.debug('Record file URL: %s' % record_file_url)
         package_dict['resources'][0]['url'] = record_file_url
-        package_dict['resources'][0]['size'] = oai_helper.get_size_of_file(package_dict['set_name'], 'records.xml')
+        package_dict['resources'][0]['size'] = oai_helper.get_size_of_file(
+            package_dict['set_name'],
+            'records.xml'
+        )
         log.debug('Size added to resource.')
 
         harvest_object.content = json.dumps(package_dict)
