@@ -1,22 +1,25 @@
-import logging
 import ckan.lib.cli
 import sys
 
 from ckanext.snl.helpers import oai
+
 
 class SNLCommand(ckan.lib.cli.CkanCommand):
     '''Command to handle snl data
 
     Usage:
 
+        # General usage
+        paster --plugin=ckanext-snl <command> -c <path to config file>
+
         # Show this help
-        paster --plugin=ckanext-snl snl help -c <path to config file>
+        paster snl help
 
         # Export the oai entries for the specified set
-        paster --plugin=ckanext-snl snl export <set name> -c <path to config file>
+        paster snl export <set name>
 
         # Resume export of the oai entries for the specified set
-        paster --plugin=ckanext-snl snl resume <set name> <start record count> <limit record count> -c <path to config file>
+        paster snl resume <set name> <start record count> <limit record count>
 
     '''
     summary = __doc__.split('\n')[0]
@@ -31,10 +34,10 @@ class SNLCommand(ckan.lib.cli.CkanCommand):
         # load pylons config
         self._load_config()
         options = {
-                'help': self.helpCmd,
-                'export': self.exportCmd,
-                'resume': self.resumeCmd,
-                'dump': self.dumpCmd
+            'help': self.helpCmd,
+            'export': self.exportCmd,
+            'resume': self.resumeCmd,
+            'dump': self.dumpCmd
         }
 
         try:
@@ -48,12 +51,20 @@ class SNLCommand(ckan.lib.cli.CkanCommand):
     def helpCmd(self):
         print self.__doc__
 
-    def exportCmd(self, set_name, oai_url='http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'):
+    def exportCmd(
+            self,
+            set_name,
+            oai_url='http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'):
         oai_helper = oai.OAI('ch.nb', oai_url)
         append = True if set_name == 'NewBib' else False
         print oai_helper.export(set_name, append)
 
-    def resumeCmd(self, set_name, count, limit=None, oai_url='http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'):
+    def resumeCmd(
+            self,
+            set_name,
+            count,
+            limit=None,
+            oai_url='http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'):
         oai_helper = oai.OAI('ch.nb', oai_url)
         append = True if set_name in self.APPEND_SETS else False
         count = int(count)

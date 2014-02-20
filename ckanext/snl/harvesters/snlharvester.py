@@ -1,30 +1,25 @@
 #n -*- coding: utf-8 -*-
 
-import random
 import os
-import shutil
 import tempfile
-import zipfile
-from pprint import pprint
-from collections import defaultdict
 import urllib3
+import shutil
 
-from ckan.lib.base import c
 from ckan import model
-from ckan.model import Session, Package
-from ckan.logic import ValidationError, NotFound, get_action, action
+from ckan.model import Session
+from ckan.logic import get_action, action
 from ckan.lib.helpers import json
 from ckan.lib.munge import munge_title_to_name
 
-from ckanext.harvest.model import HarvestJob, HarvestObject, HarvestGatherError, HarvestObjectError
+from ckanext.harvest.model import HarvestObject
 from ckanext.harvest.harvesters import HarvesterBase
 
-from ckanext.snl.helpers import s3
 from ckanext.snl.helpers import oai
 from ckanext.snl.helpers.xls_metadata import MetaDataParser
 
 import logging
 log = logging.getLogger(__name__)
+
 
 class SNLHarvester(HarvesterBase):
     '''
@@ -37,29 +32,69 @@ class SNLHarvester(HarvesterBase):
     METADATA_FILE_NAME = 'OGD_Metadaten_NB.xlsx'
 
     SHEETS = (
-        (u'NB-BSG', u'NewBib', True, 'http://opac.admin.ch/cgi-bin/biblioai/VTLS/Vortex.pl'),
-        (u'NB-SB', u'sb', True, 'http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'),
-        (u'NB-e-diss', u'e-diss', False, 'http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'),
-        (u'NB-digicoll', 'digicoll', False, 'http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'),
+        (
+            u'NB-BSG',
+            u'NewBib',
+            True,
+            'http://opac.admin.ch/cgi-bin/biblioai/VTLS/Vortex.pl'
+        ),
+        (
+            u'NB-SB',
+            u'sb',
+            True,
+            'http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'
+        ),
+        (
+            u'NB-e-diss',
+            u'e-diss',
+            False,
+            'http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'
+        ),
+        (
+            u'NB-digicoll',
+            'digicoll',
+            False,
+            'http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'
+        ),
     )
 
     ORGANIZATION = {
         u'de': {
             'name': u'Schweizerische Nationalbibliothek',
-            'description': u'Sammelt alle Schweizer Publikationen seit 1848. Ebenfalls zur Nationalbibliothek gehören das Schweizerische Literaturarchiv, die Graphische Sammlung und das Centre Dürrenmatt.',
+            'description': (
+                u'Sammelt alle Schweizer Publikationen seit 1848. Ebenfalls '
+                u'zur Nationalbibliothek gehören das Schweizerische '
+                u'Literaturarchiv, die Graphische Sammlung und das '
+                u'Centre Dürrenmatt.'
+            ),
             'website': 'http://www.nb.admin.ch/'
         },
         u'fr': {
             'name': u'Bibliothèque nationale suisse',
-            'description': u'Collecte l’ensemble des publications suisses depuis 1848. Les Archives littéraires suisses, le Cabinet des estampes et le Centre Dürrenmatt font également partie de la Bibliothèque nationale.'
+            'description': (
+                u'Collecte l’ensemble des publications suisses depuis '
+                u'1848. Les Archives littéraires suisses, le Cabinet des '
+                u'estampes et le Centre Dürrenmatt font également partie '
+                u'de la Bibliothèque nationale.'
+            )
         },
         u'it': {
             'name': u'Biblioteca nazionale svizzera',
-            'description': u'Colleziona tutte le pubblicazioni a partire dal 1848. Alla Biblioteca nazionale sono accorpati l\'Archivio svizzero di letteratura, il Gabinetto delle stampe e il Centre Dürrenmatt.'
+            'description': (
+                u'Colleziona tutte le pubblicazioni a partire dal 1848. '
+                u'Alla Biblioteca nazionale sono accorpati l\'Archivio '
+                u'svizzero di letteratura, il Gabinetto delle stampe e '
+                u'il Centre Dürrenmatt.'
+            )
         },
         u'en': {
             'name': u'Swiss National Library',
-            'description': u'Collects all Swiss publications since 1848. The Swiss Literary Archives, the Cabinet of Prints and Drawings and the Centre Dürrenmatt also belong to the National Library.'
+            'description': (
+                u'Collects all Swiss publications since 1848. The Swiss '
+                u'Literary Archives, the Cabinet of Prints and Drawings '
+                u'and the Centre Dürrenmatt also belong to the '
+                u'National Library.'
+            )
         }
     }
 
@@ -83,7 +118,6 @@ class SNLHarvester(HarvesterBase):
         with open(local_path, 'w') as local_file:
             local_file.write(metadata_file.data)
         return local_path
-
 
     def info(self):
         return {
@@ -112,27 +146,35 @@ class SNLHarvester(HarvesterBase):
             log.debug(metadata)
 
             obj = HarvestObject(
-                #guid = metadata.get('id'),
-                job = harvest_job,
-                content = json.dumps(metadata)
+                job=harvest_job,
+                content=json.dumps(metadata)
             )
 
             obj.save()
             ids.append(obj.id)
 
-        return ids
+        temp_dir = os.path.dirname(metadata_path)
+        shutil.rmtree(temp_dir)
 
+        return ids
 
     def fetch_stage(self, harvest_object):
         log.debug('In SNLHarvester fetch_stage')
         package_dict = json.loads(harvest_object.content)
 
-        #oai_url = package_dict.get('extra_harvester_url', 'http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl')
         oai_url = package_dict['oai_url']
         oai_helper = oai.OAI('ch.nb', oai_url)
-        record_file_url = oai_helper.export(package_dict['set_name'], package_dict['append_data'])
+        record_file_url = oai_helper.export(
+            package_dict['set_name'],
+            package_dict['append_data']
+        )
         log.debug('Record file URL: %s' % record_file_url)
         package_dict['resources'][0]['url'] = record_file_url
+        package_dict['resources'][0]['size'] = oai_helper.get_size_of_file(
+            package_dict['set_name'],
+            'records.xml'
+        )
+        log.debug('Size added to resource.')
 
         harvest_object.content = json.dumps(package_dict)
         harvest_object.save()
@@ -160,8 +202,11 @@ class SNLHarvester(HarvesterBase):
             # Find or create group the dataset should get assigned to
             package_dict['groups'] = self._find_or_create_groups(context)
 
-            # Find or create the organization the dataset should get assigned to
-            package_dict['owner_org'] = self._find_or_create_organization(context)
+            # Find or create the organization
+            # the dataset should get assigned to
+            package_dict['owner_org'] = self._find_or_create_organization(
+                context
+            )
 
             # Never import state from data source!
             if 'state' in package_dict:
@@ -177,10 +222,14 @@ class SNLHarvester(HarvesterBase):
             package_dict['tags'] = tags
 
             package = model.Package.get(package_dict['id'])
-            model.PackageRole(package=package, user=user, role=model.Role.ADMIN)
+            model.PackageRole(
+                package=package,
+                user=user,
+                role=model.Role.ADMIN
+            )
 
             #log.debug('Save or update package %s' % (package_dict['name'],))
-            result = self._create_or_update_package(package_dict, harvest_object)
+            self._create_or_update_package(package_dict, harvest_object)
 
             log.debug('Save or update term translations')
             self._submit_term_translations(context, package_dict)
@@ -224,7 +273,10 @@ class SNLHarvester(HarvesterBase):
         try:
             organization = get_action('organization_show')(context, data_dict)
         except:
-            organization = get_action('organization_create')(context, data_dict)
+            organization = get_action('organization_create')(
+                context,
+                data_dict
+            )
         return organization['id']
 
     def _metadata_term_translations(self):
