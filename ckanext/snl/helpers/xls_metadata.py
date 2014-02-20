@@ -40,7 +40,7 @@ class MetaDataParser(object):
         'name',
         'description',
         'type',
-        'format',
+        'format'
     )
 
     def __init__(self, file_name):

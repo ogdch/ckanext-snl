@@ -56,6 +56,10 @@ class OAI():
         bucket_name = self.bucket_prefix + '.' + set_name
         return self.s3.get_url_of_file(bucket_name, filename)
 
+    def get_size_of_file(self, set_name, filename):
+        bucket_name = self.bucket_prefix + '.' + set_name
+        return self.s3.get_size_of_file(bucket_name, filename)
+
     def dump(self, set_name):
         temp_dir = tempfile.mkdtemp()
         print self._dump_s3_bucket_to_dir(set_name, temp_dir)

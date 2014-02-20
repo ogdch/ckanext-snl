@@ -47,6 +47,11 @@ class S3():
         key = self.bucket.get_key(bucket_path)
         return key.generate_url(0, query_auth=False, force_http=True)
 
+    def get_size_of_file(self, bucket_name, filename):
+        bucket_path = bucket_name + '/' + filename
+        key = self.bucket.get_key(bucket_path)
+        return self.bucket.lookup(key).size
+
     def upload_dir_to_bucket(self, bucket_name, dir_name):
         for filename in os.listdir(dir_name):
             self.upload_file_to_bucket(bucket_name, dir_name, filename)
