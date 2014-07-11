@@ -28,8 +28,8 @@ class SNLHarvester(HarvesterBase):
 
     HARVEST_USER = u'harvest'
 
-    METADATA_FILE_URL = 'http://ead.nb.admin.ch/ogd/OGD_Metadaten_NB.xlsx'
-    METADATA_FILE_NAME = 'OGD_Metadaten_NB.xlsx'
+    METADATA_FILE_URL = '/vagrant/data/OGD_Metadaten_NB.xml'
+    METADATA_FILE_NAME = 'OGD_Metadaten_NB.xml'
 
     SHEETS = (
         (
