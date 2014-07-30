@@ -138,10 +138,10 @@ class MetaDataParser(object):
             key = row.get('ckan_attribute')
             # ignore translations for unuused fields
             if (entity == 'Dataset' and key not in self.DATASET_ATTRIBUTES):
-                log.debug('Omit dataset attribute %s' % (key, 'n/a'))
+                log.debug('Omit dataset attribute %s' % key)
                 continue
             if entity == 'Resource' and key not in self.RESOURCE_ATTRIBUTES:
-                log.debug('Omit resource attribute %s' % (key, 'n/a'))
+                log.debug('Omit resource attribute %s' % key)
                 continue
 
             log.debug('Create translation for %s' % key)
