@@ -15,7 +15,7 @@ from ckanext.harvest.model import HarvestObject
 from ckanext.harvest.harvesters import HarvesterBase
 
 from ckanext.snl.helpers import oai
-from ckanext.snl.helpers.xls_metadata import MetaDataParser
+from ckanext.snl.helpers.xml_metadata import MetaDataParser
 
 import logging
 log = logging.getLogger(__name__)
@@ -28,34 +28,33 @@ class SNLHarvester(HarvesterBase):
 
     HARVEST_USER = u'harvest'
 
-    METADATA_FILE_URL = '/vagrant/data/OGD_Metadaten_NB.xml'
+    METADATA_FILE_URL = (
+        'http://bar-opendata-ch.s3.amazonaws.com/' +
+        'OGD_Metadaten_NB.xml'
+    )
     METADATA_FILE_NAME = 'OGD_Metadaten_NB.xml'
 
     SHEETS = (
         (
-            u'NB-BSG',
             u'NewBib',
             True,
             'http://opac.admin.ch/cgi-bin/biblioai/VTLS/Vortex.pl'
         ),
         (
-            u'NB-SB',
             u'sb',
             True,
             'http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'
         ),
         (
-            u'NB-e-diss',
             u'e-diss',
             False,
             'http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'
         ),
         (
-            u'NB-digicoll',
             'digicoll',
             False,
             'http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'
-        ),
+        )
     )
 
     ORGANIZATION = {
@@ -132,25 +131,26 @@ class SNLHarvester(HarvesterBase):
 
         metadata_path = self._fetch_metadata_file()
         ids = []
-        for sheet_name, set_name, append, oai_url in self.SHEETS:
-            log.debug('Gathering %s' % sheet_name)
+        for set_name, append, oai_url in self.SHEETS:
+            log.debug('Gathering %s' % set_name)
 
             parser = MetaDataParser(metadata_path)
 
-            metadata = parser.parse_sheet(sheet_name)
+            metadata = parser.parse_sheet(set_name)
             metadata['translations'].extend(self._metadata_term_translations())
-            metadata['sheet_name'] = sheet_name
             metadata['set_name'] = set_name
             metadata['append_data'] = append
             metadata['oai_url'] = oai_url
+
             log.debug(metadata)
 
             obj = HarvestObject(
+                guid=metadata['id'],
                 job=harvest_job,
                 content=json.dumps(metadata)
             )
-
             obj.save()
+            log.debug('adding ' + metadata['id'] + ' to the queue')
             ids.append(obj.id)
 
         temp_dir = os.path.dirname(metadata_path)
@@ -218,7 +218,6 @@ class SNLHarvester(HarvesterBase):
             # Split tags
             tags = package_dict.get('tags', '').split(',')
             tags = [tag.strip() for tag in tags]
-
             package_dict['tags'] = tags
 
             package = model.Package.get(package_dict['id'])
@@ -228,7 +227,7 @@ class SNLHarvester(HarvesterBase):
                 role=model.Role.ADMIN
             )
 
-            #log.debug('Save or update package %s' % (package_dict['name'],))
+            log.debug('Save or update package %s' % (package_dict['name'],))
             self._create_or_update_package(package_dict, harvest_object)
 
             log.debug('Save or update term translations')
