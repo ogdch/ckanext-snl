@@ -30,9 +30,9 @@ class SNLHarvester(HarvesterBase):
 
     METADATA_FILE_URL = (
         'http://bar-opendata-ch.s3.amazonaws.com/' +
-        'OGD_Metadaten_NB.xml'
+        'OGD_Metadaten_NB_with_test_dataset.xml'
     )
-    METADATA_FILE_NAME = 'OGD_Metadaten_NB.xml'
+    METADATA_FILE_NAME = 'OGD_Metadaten_NB_with_test_dataset.xml'
 
     ORGANIZATION = {
         u'de': {
@@ -111,8 +111,6 @@ class SNLHarvester(HarvesterBase):
 
         parser = MetaDataParser(metadata_path)
 
-        log.debug(parser.list_datasets())
-
         for dataset in parser.list_datasets():
             metadata = parser.parse_set(dataset)
             metadata['translations'].extend(self._metadata_term_translations())
@@ -136,22 +134,29 @@ class SNLHarvester(HarvesterBase):
     def fetch_stage(self, harvest_object):
         log.debug('In SNLHarvester fetch_stage')
         package_dict = json.loads(harvest_object.content)
-
         oai_url = package_dict['oai_url']
         bucket_prefix = package_dict['bucket_prefix']
         oai_helper = oai.OAI(bucket_prefix, oai_url)
-        record_file_url = oai_helper.export(
-            package_dict['id'],
-            package_dict['append_data'],
-            export_filename=package_dict['export_filename']
-        )
-        log.debug('Record file URL: %s' % record_file_url)
-        package_dict['resources'][0]['url'] = record_file_url
-        package_dict['resources'][0]['size'] = oai_helper.get_size_of_file(
-            package_dict['id'],
-            'records.xml'
-        )
-        log.debug('Size added to resource.')
+
+        for resource in package_dict['resources']:
+            if resource['type'] == 'oai':
+                record_file_url = oai_helper.export(
+                    package_dict['id'],
+                    package_dict['append_data'],
+                    export_filename=resource['export_filename']
+                )
+                log.debug('Record file URL: %s' % record_file_url)
+                resource['url'] = record_file_url
+                resource['size'] = oai_helper.get_size_of_file(
+                    package_dict['id'],
+                    resource['export_filename']
+                )
+                log.debug('Size added to resource.')
+            else:
+                resource['size'] = oai_helper.get_size_of_file(
+                    package_dict['id'],
+                    resource['export_filename']
+                )
 
         harvest_object.content = json.dumps(package_dict)
         harvest_object.save()

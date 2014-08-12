@@ -14,14 +14,14 @@ class MetaDataParser(object):
         'url',
         'notes',
         'author',
+        'author_email',
         'maintainer',
         'maintainer_email',
         'license_id',
         'tags',
         'oai_url',
         'append_data',
-        'bucket_prefix',
-        'export_filename'
+        'bucket_prefix'
     )
 
     # Only these attributes will be imported into resource
@@ -30,7 +30,8 @@ class MetaDataParser(object):
         'name',
         'description',
         'type',
-        'format'
+        'format',
+        'export_filename'
     )
 
     def __init__(self, file_name):
@@ -56,6 +57,9 @@ class MetaDataParser(object):
         '''
         Parse one dataset and its resources and return them as dict
         '''
+
+        log.debug('parsing dataset')
+
         dataset_attrs = dataset.find('dataset_attributes')
         metadata = {
             'id': dataset.get('id')
