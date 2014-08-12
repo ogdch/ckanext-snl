@@ -34,29 +34,6 @@ class SNLHarvester(HarvesterBase):
     )
     METADATA_FILE_NAME = 'OGD_Metadaten_NB.xml'
 
-    SHEETS = (
-        (
-            u'NewBib',
-            True,
-            'http://opac.admin.ch/cgi-bin/biblioai/VTLS/Vortex.pl'
-        ),
-        (
-            u'sb',
-            True,
-            'http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'
-        ),
-        (
-            u'e-diss',
-            False,
-            'http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'
-        ),
-        (
-            'digicoll',
-            False,
-            'http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'
-        )
-    )
-
     ORGANIZATION = {
         u'de': {
             'name': u'Schweizerische Nationalbibliothek',
@@ -131,16 +108,14 @@ class SNLHarvester(HarvesterBase):
 
         metadata_path = self._fetch_metadata_file()
         ids = []
-        for set_name, append, oai_url in self.SHEETS:
-            log.debug('Gathering %s' % set_name)
 
-            parser = MetaDataParser(metadata_path)
+        parser = MetaDataParser(metadata_path)
 
-            metadata = parser.parse_sheet(set_name)
+        log.debug(parser.list_datasets())
+
+        for dataset in parser.list_datasets():
+            metadata = parser.parse_set(dataset)
             metadata['translations'].extend(self._metadata_term_translations())
-            metadata['set_name'] = set_name
-            metadata['append_data'] = append
-            metadata['oai_url'] = oai_url
 
             log.debug(metadata)
 
@@ -163,15 +138,17 @@ class SNLHarvester(HarvesterBase):
         package_dict = json.loads(harvest_object.content)
 
         oai_url = package_dict['oai_url']
-        oai_helper = oai.OAI('ch.nb', oai_url)
+        bucket_prefix = package_dict['bucket_prefix']
+        oai_helper = oai.OAI(bucket_prefix, oai_url)
         record_file_url = oai_helper.export(
-            package_dict['set_name'],
-            package_dict['append_data']
+            package_dict['id'],
+            package_dict['append_data'],
+            export_filename=package_dict['export_filename']
         )
         log.debug('Record file URL: %s' % record_file_url)
         package_dict['resources'][0]['url'] = record_file_url
         package_dict['resources'][0]['size'] = oai_helper.get_size_of_file(
-            package_dict['set_name'],
+            package_dict['id'],
             'records.xml'
         )
         log.debug('Size added to resource.')
@@ -234,6 +211,8 @@ class SNLHarvester(HarvesterBase):
             self._submit_term_translations(context, package_dict)
 
             Session.commit()
+
+            log.debug('Importing finished.')
         except Exception, e:
             log.exception(e)
             raise e

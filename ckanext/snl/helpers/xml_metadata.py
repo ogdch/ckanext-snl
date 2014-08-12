@@ -18,6 +18,10 @@ class MetaDataParser(object):
         'maintainer_email',
         'license_id',
         'tags',
+        'oai_url',
+        'append_data',
+        'bucket_prefix',
+        'export_filename'
     )
 
     # Only these attributes will be imported into resource
@@ -33,41 +37,46 @@ class MetaDataParser(object):
         self.file_name = file_name
         self.meta_xml = open(file_name)
 
-    def parse_sheet(self, set_name):
-        '''
-        Parse one dataset and its resources and return them as dict
-        '''
-
+    def list_datasets(self):
+        datasets_list = []
         meta_xml = self.meta_xml
         parser = etree.XMLParser(encoding='utf-8')
+
         datasets = etree.fromstring(
             meta_xml.read(),
             parser=parser
         ).findall('dataset')
 
         for dataset in datasets:
-            if dataset.get('id') == set_name:
-                dataset_attrs = dataset.find('dataset_attributes')
-                metadata = {
-                    'id': dataset.get('id')
-                }
+            datasets_list.append(dataset)
 
-                for attr in self.DATASET_ATTRIBUTES:
-                    metadata[attr] = dataset_attrs.find(attr).find('de').text
+        return datasets_list
 
-                log.debug(metadata)
+    def parse_set(self, dataset):
+        '''
+        Parse one dataset and its resources and return them as dict
+        '''
+        dataset_attrs = dataset.find('dataset_attributes')
+        metadata = {
+            'id': dataset.get('id')
+        }
 
-                if 'name' in metadata:
-                    metadata['name'] = munge_tag(metadata['name'])
-                    metadata['resources'] = self._build_resources_list(dataset)
-                    metadata = self._handle_license(metadata)
-                    metadata['translations'] = self._build_term_translations(
-                        dataset
-                    )
+        for attr in self.DATASET_ATTRIBUTES:
+            metadata[attr] = dataset_attrs.find(attr).find('de').text
 
-                log.debug(metadata)
+        log.debug(metadata)
 
-                return metadata
+        if 'name' in metadata:
+            metadata['name'] = munge_tag(metadata['name'])
+            metadata['resources'] = self._build_resources_list(dataset)
+            metadata = self._handle_license(metadata)
+            metadata['translations'] = self._build_term_translations(
+                dataset
+            )
+
+        log.debug(metadata)
+
+        return metadata
 
     def _clean_values(self, values):
         '''
