@@ -137,12 +137,13 @@ class SNLHarvester(HarvesterBase):
         oai_url = package_dict['oai_url']
         bucket_prefix = package_dict['bucket_prefix']
         oai_helper = oai.OAI(bucket_prefix, oai_url)
+        append = True if package_dict['append_data'] == u'True' else False
 
         for resource in package_dict['resources']:
             if resource['type'] == 'oai':
                 record_file_url = oai_helper.export(
                     package_dict['id'],
-                    package_dict['append_data'],
+                    append=append,
                     export_filename=resource['export_filename']
                 )
                 log.debug('Record file URL: %s' % record_file_url)
