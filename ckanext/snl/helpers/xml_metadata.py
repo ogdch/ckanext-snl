@@ -73,7 +73,6 @@ class MetaDataParser(object):
         if 'name' in metadata:
             metadata['name'] = munge_tag(metadata['name'])
             metadata['resources'] = self._build_resources_list(dataset)
-            metadata = self._handle_license(metadata)
             metadata['translations'] = self._build_term_translations(
                 dataset
             )
@@ -108,12 +107,6 @@ class MetaDataParser(object):
             resources_list.append(current)
 
         return resources_list
-
-    def _handle_license(self, metadata):
-        if (metadata['license_id'] == 'CCO'):
-            metadata['license_id'] = 'cc-zero'
-
-        return metadata
 
     def _build_term_translations(self, dataset):
         """
