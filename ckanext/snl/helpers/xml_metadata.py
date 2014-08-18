@@ -19,7 +19,6 @@ class MetaDataParser(object):
         'maintainer_email',
         'license_id',
         'tags',
-        'oai_url',
         'append_data',
         'bucket_prefix'
     )
@@ -27,10 +26,12 @@ class MetaDataParser(object):
     # Only these attributes will be imported into resource
     RESOURCE_ATTRIBUTES = (
         'url',
+        'oai_url',
         'name',
         'description',
         'type',
         'format',
+        'metadata_prefix',
         'export_filename'
     )
 

@@ -1,6 +1,7 @@
 from oaipmh.client import Client
-from oaipmh.metadata import MetadataRegistry
+from oaipmh.metadata import MetadataRegistry, oai_dc_reader
 from metadata import XMLMetadataReader
+from oaipmh.server import oai_dc_writer
 from lxml import etree
 from resumption import ResumptionClient
 import os
@@ -17,11 +18,22 @@ class OAI():
     def __init__(
             self,
             bucket_prefix,
-            url='http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl'):
+            url='http://opac.admin.ch/cgi-bin/nboai/VTLS/Vortex.pl',
+            metadata_prefix='marcxml'):
         self.registry = MetadataRegistry()
         self.url = url
-        xml_reader = XMLMetadataReader()
-        self.registry.registerReader('marcxml', xml_reader)
+
+        if metadata_prefix == 'marcxml':
+            reader = XMLMetadataReader()
+            self.registry.registerReader(metadata_prefix, reader)
+        elif metadata_prefix == 'oai_dc':
+            reader = oai_dc_reader
+            writer = oai_dc_writer
+            self.registry.registerReader(metadata_prefix, reader)
+            self.registry.registerWriter(metadata_prefix, writer)
+        else:
+            log.debug('Metadata format not marcxml or oai_dc')
+
         self.client = Client(self.url, self.registry)
         self.s3 = s3.S3()
         self.bucket_prefix = bucket_prefix
@@ -71,15 +83,17 @@ class OAI():
             params=None,
             count=0,
             limit=None,
-            export_filename='records.xml'):
+            export_filename='records.xml',
+            metadata_prefix='marcxml'):
         log.debug('Starting to export set %s' % set_name)
+        log.debug('oai_url: ' + self.url)
         actual_set_name = set_name
 
         if params is None:
             actual_set_name = set_name if not append else 'NewBib'
             params = {
                 'set': actual_set_name,
-                'metadataPrefix': 'marcxml',
+                'metadataPrefix': metadata_prefix,
             }
 
         filenames = []
@@ -134,7 +148,14 @@ class OAI():
 
             # save record as XML file
             newRecord = etree.Element("record")
-            newRecord.append(metadata)
+            if metadata_prefix == 'marcxml':
+                newRecord.append(metadata)
+            else:
+                self.registry.writeMetadata(
+                    metadata_prefix,
+                    newRecord,
+                    metadata
+                )
             tree = etree.ElementTree(newRecord)
             filename = os.path.join(temp_dir, header.identifier() + '.xml')
             filenames.append(filename)
