@@ -28,11 +28,8 @@ class SNLHarvester(HarvesterBase):
 
     HARVEST_USER = u'harvest'
 
-    METADATA_FILE_URL = (
-        'http://bar-opendata-ch.s3.amazonaws.com/' +
-        'xsichler.xml'
-    )
-    METADATA_FILE_NAME = 'xsichler.xml'
+    METADATA_FILE_URL = 'http://ead.nb.admin.ch/ogd/OGD_Metadaten_NB.xml'
+    METADATA_FILE_NAME = 'OGD_Metadaten_NB.xml'
 
     ORGANIZATION = {
         u'de': {
