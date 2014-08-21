@@ -153,11 +153,17 @@ class SNLHarvester(HarvesterBase):
                 )
                 log.debug('Size added to resource.')
             else:
-                resource['size'] = oai_helper.get_size_of_file(
-                    package_dict['id'],
-                    resource['export_filename']
-                )
-                log.debug('Size added to resource.')
+                try:
+                    resource['size'] = oai_helper.get_size_of_file(
+                        'statisch',
+                        resource['export_filename']
+                    )
+                    log.debug('Size added to resource.')
+                except AttributeError:
+                    log.debug(
+                        'Can\'t get file size: %s is not hosted on S3.' %
+                        resource['export_filename']
+                    )
 
         harvest_object.content = json.dumps(package_dict)
         harvest_object.save()
