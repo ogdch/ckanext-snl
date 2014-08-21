@@ -154,7 +154,7 @@ class SNLHarvester(HarvesterBase):
                 log.debug('Size added to resource.')
             else:
                 resource['size'] = oai_helper.get_size_of_file(
-                    package_dict['id'],
+                    'statisch',
                     resource['export_filename']
                 )
                 log.debug('Size added to resource.')
