@@ -124,6 +124,7 @@ class SNLHarvester(HarvesterBase):
             ids.append(obj.id)
 
         temp_dir = os.path.dirname(metadata_path)
+        log.debug('Deleting directory ' + temp_dir)
         shutil.rmtree(temp_dir)
 
         return ids
