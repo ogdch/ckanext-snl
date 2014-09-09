@@ -140,19 +140,23 @@ class SNLHarvester(HarvesterBase):
             metadata_prefix = resource['metadata_prefix']
             oai_helper = oai.OAI(bucket_prefix, oai_url, metadata_prefix)
             if resource['type'] == 'oai':
-                record_file_url = oai_helper.export(
-                    package_dict['id'],
-                    append=append,
-                    export_filename=resource['export_filename'],
-                    metadata_prefix=metadata_prefix
-                )
-                log.debug('Record file URL: %s' % record_file_url)
-                resource['url'] = record_file_url
-                resource['size'] = oai_helper.get_size_of_file(
-                    package_dict['id'],
-                    resource['export_filename']
-                )
-                log.debug('Size added to resource.')
+                try:
+                    record_file_url = oai_helper.export(
+                        package_dict['id'],
+                        append=append,
+                        export_filename=resource['export_filename'],
+                        metadata_prefix=metadata_prefix
+                    )
+                    log.debug('Record file URL: %s' % record_file_url)
+                    resource['url'] = record_file_url
+                    resource['size'] = oai_helper.get_size_of_file(
+                        package_dict['id'],
+                        resource['export_filename']
+                    )
+                    log.debug('Size added to resource.')
+                except Exception, e:
+                    log.exception(e)
+                    return False
             else:
                 try:
                     resource['size'] = oai_helper.get_size_of_file(
