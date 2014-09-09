@@ -48,7 +48,9 @@ class OAI():
                 outfile.write('<' + wrap + '>\n')
             for filename in filenames:
                 with open(filename) as infile:
-                    outfile.write(infile.read())
+                    for line in infile:
+                        outfile.write(line)
+                    outfile.flush()
             if wrap is not None:
                 outfile.write('</' + wrap + '>')
 
