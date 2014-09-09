@@ -135,7 +135,7 @@ class OAI():
                             % set_name
                         )
                         continue
-                except IndexError:
+                except (IndexError, TypeError):
                     log.debug('Record does not belong to set %s' % set_name)
                     continue
 
