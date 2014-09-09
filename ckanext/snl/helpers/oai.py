@@ -204,7 +204,11 @@ class OAI():
             )
             self._upload_file_to_s3(set_name, temp_dir, export_filename)
         log.debug('Deleting directory ' + temp_dir)
-        shutil.rmtree(temp_dir)
+        try:
+            shutil.rmtree(temp_dir)
+        except Exception, e:
+            log.exception(e)
+            pass
 
         return self._get_url_of_file(set_name, export_filename)
 
