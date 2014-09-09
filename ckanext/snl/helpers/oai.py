@@ -219,7 +219,11 @@ class OAI():
             )
             self._concatenate_xml_files(step_file, filenames, wrap=None)
             for filename in filenames:
-                os.remove(filename)
+                try:
+                    os.remove(filename)
+                    log.debug('Deleted file %s' % (filename))
+                except OSError:
+                    log.debug('Could not delete file %s' % (filename))
             return step_file
 
     def resume_export(self, set_name, append, count, limit):
