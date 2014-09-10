@@ -156,6 +156,7 @@ class SNLHarvester(HarvesterBase):
                     log.debug('Size added to resource.')
                 except Exception, e:
                     log.exception(e)
+                    log.error('Error while exporting oai file: %s' % e)
                     return False
             else:
                 try:
