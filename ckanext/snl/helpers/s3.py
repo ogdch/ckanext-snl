@@ -2,6 +2,8 @@ from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 from pylons import config
 import os
+import logging
+log = logging.getLogger(__name__)
 
 
 class S3():
@@ -59,7 +61,10 @@ class S3():
     def upload_file_to_bucket(self, bucket_name, dir_name, filename):
         key = Key(self.bucket)
         key.key = bucket_name + '/' + filename
-        key.set_contents_from_filename(os.path.join(dir_name, filename))
+        key.set_contents_from_filename(
+            os.path.join(dir_name, filename),
+            cb=self.percent_cb
+        )
         # Copy the key onto itself, preserving the
         # ACL but changing the content-type
         key.copy(
@@ -71,6 +76,9 @@ class S3():
                 'Content-Disposition': 'attachment; filename="%s"' % filename
             }
         )
+
+    def percent_cb(complete, total):
+        log.debug('%i/%i' % (complete, total))
 
 
 class ConfigEntryNotFoundError(Exception):
