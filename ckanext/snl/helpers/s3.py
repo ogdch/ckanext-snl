@@ -63,7 +63,7 @@ class S3():
         key.key = bucket_name + '/' + filename
         key.set_contents_from_filename(
             os.path.join(dir_name, filename),
-            cb=self.percent_cb
+            cb=percent_cb
         )
         # Copy the key onto itself, preserving the
         # ACL but changing the content-type
@@ -77,8 +77,9 @@ class S3():
             }
         )
 
-    def percent_cb(complete, total):
-        log.debug('%i/%i' % (complete, total))
+
+def percent_cb(complete, total):
+    log.debug('%i/%i' % (complete, total))
 
 
 class ConfigEntryNotFoundError(Exception):
