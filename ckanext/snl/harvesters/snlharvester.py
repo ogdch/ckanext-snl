@@ -105,27 +105,29 @@ class SNLHarvester(HarvesterBase):
 
         metadata_path = self._fetch_metadata_file()
         ids = []
+        try:
+            parser = MetaDataParser(metadata_path)
 
-        parser = MetaDataParser(metadata_path)
+            for dataset in parser.list_datasets():
+                metadata = parser.parse_set(dataset)
+                metadata['translations'].extend(
+                    self._metadata_term_translations()
+                )
 
-        for dataset in parser.list_datasets():
-            metadata = parser.parse_set(dataset)
-            metadata['translations'].extend(self._metadata_term_translations())
+                log.debug(metadata)
 
-            log.debug(metadata)
-
-            obj = HarvestObject(
-                guid=metadata['id'],
-                job=harvest_job,
-                content=json.dumps(metadata)
-            )
-            obj.save()
-            log.debug('adding ' + metadata['id'] + ' to the queue')
-            ids.append(obj.id)
-
-        temp_dir = os.path.dirname(metadata_path)
-        log.debug('Deleting directory ' + temp_dir)
-        shutil.rmtree(temp_dir)
+                obj = HarvestObject(
+                    guid=metadata['id'],
+                    job=harvest_job,
+                    content=json.dumps(metadata)
+                )
+                obj.save()
+                log.debug('adding ' + metadata['id'] + ' to the queue')
+                ids.append(obj.id)
+        finally:
+            temp_dir = os.path.dirname(metadata_path)
+            log.debug('Deleting directory ' + temp_dir)
+            shutil.rmtree(temp_dir)
 
         return ids
 
@@ -156,7 +158,9 @@ class SNLHarvester(HarvesterBase):
                     log.debug('Size added to resource.')
                 except Exception, e:
                     log.exception(e)
-                    log.error('Error while exporting oai file: %s' % e)
+                    self._save_object_error(
+                        'Error while exporting oai file: %s' % e
+                    )
                     return False
             else:
                 try:
@@ -181,6 +185,7 @@ class SNLHarvester(HarvesterBase):
 
         if not harvest_object:
             log.error('No harvest object received')
+            self._save_object_error('No harvest object received')
             return False
 
         try:
@@ -233,7 +238,8 @@ class SNLHarvester(HarvesterBase):
             log.debug('Importing finished.')
         except Exception, e:
             log.exception(e)
-            raise e
+            self._save_object_error('Exception when importing object: %s' % e)
+            return False
         return True
 
     def _find_or_create_groups(self, context):
