@@ -159,7 +159,8 @@ class SNLHarvester(HarvesterBase):
                 except Exception, e:
                     log.exception(e)
                     self._save_object_error(
-                        'Error while exporting oai file: %s' % e
+                        'Error while exporting oai file: %s' % e,
+                        harvest_object
                     )
                     return False
             else:
@@ -238,7 +239,10 @@ class SNLHarvester(HarvesterBase):
             log.debug('Importing finished.')
         except Exception, e:
             log.exception(e)
-            self._save_object_error('Exception when importing object: %s' % e)
+            self._save_object_error(
+                'Exception when importing object: %s' % e,
+                harvest_object
+            )
             return False
         return True
 
