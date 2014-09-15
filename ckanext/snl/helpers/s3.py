@@ -109,8 +109,13 @@ class S3():
             default_chunk_size
         )
         chunk_amount = int(math.ceil(source_size / float(bytes_per_chunk)))
+        headers = {
+            'Content-Type': 'binary/octet-stream',
+            'Content-Disposition': 'attachment; filename="%s"' %
+            filename
+        }
 
-        mp = self.bucket.initiate_multipart_upload(key.key)
+        mp = self.bucket.initiate_multipart_upload(key.key, headers=headers)
         pool = Pool(processes=parallel_processes)
         log.debug('Start upload of %s' % source_path)
         for i in range(chunk_amount):
@@ -137,18 +142,6 @@ class S3():
         if len(mp.get_all_parts()) == chunk_amount:
             mp.complete_upload()
             log.info('Upload of %s completed' % source_path)
-            # Copy the key onto itself, preserving the
-            # ACL but changing the content-type
-            key.copy(
-                key.bucket,
-                key.name,
-                preserve_acl=True,
-                metadata={
-                    'Content-Type': 'binary/octet-stream',
-                    'Content-Disposition': 'attachment; filename="%s"' %
-                    filename
-                }
-            )
         else:
             log.error('Upload of %s failed, cancel' % source_path)
             mp.cancel_upload()
