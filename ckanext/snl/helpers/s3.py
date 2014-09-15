@@ -43,6 +43,7 @@ class S3():
             filename = key.name.replace(prefix, '').encode('utf-8')
             if (ignore is not None and filename not in ignore):
                 dump_file = os.path.join(dir_name, filename)
+                log.debug('Dump file %s to %s' % (key.key, dump_file))
                 key.get_contents_to_filename(dump_file)
                 files.append(dump_file)
         return files
@@ -77,6 +78,7 @@ class S3():
 
         mp = self.bucket.initiate_multipart_upload(key.key)
         pool = Pool(processes=parallel_processes)
+        log.debug('Start upload of %s' % source_path)
         for i in range(chunk_amount):
             offset = i * bytes_per_chunk
             remaining_bytes = source_size - offset
@@ -100,6 +102,7 @@ class S3():
 
         if len(mp.get_all_parts()) == chunk_amount:
             mp.complete_upload()
+            log.info('Upload of %s completed' % source_path)
             # Copy the key onto itself, preserving the
             # ACL but changing the content-type
             key.copy(
@@ -113,6 +116,7 @@ class S3():
                 }
             )
         else:
+            log.error('Upload of %s failed, cancel' % source_path)
             mp.cancel_upload()
 
     # inspired by
@@ -144,7 +148,7 @@ class S3():
                     log.exception(e)
                     raise e
             else:
-                log.debug('Uploaded part #%d' % part_num)
+                log.info('Uploaded part #%d' % part_num)
 
         _upload()
 
