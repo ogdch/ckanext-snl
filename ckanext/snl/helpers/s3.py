@@ -9,6 +9,40 @@ import logging
 log = logging.getLogger(__name__)
 
 
+# inspired by
+# www.topfstedt.de/python-parallel-s3-multipart-upload-with-retries.html
+def _upload_part(aws_key, aws_secret, bucket_name, multipart_id,
+                 part_num, source_path, offset, bytes,
+                 amount_of_retries=10):
+    """
+    Uploads a part with retries.
+    """
+    def _upload(retries_left=amount_of_retries):
+        try:
+            log.info(
+                'Start uploading part #%d of %s' % (part_num, source_path)
+            )
+            conn = S3Connection(aws_key, aws_secret)
+            bucket = conn.get_bucket(bucket_name)
+            for mp in bucket.get_all_multipart_uploads():
+                if mp.id == multipart_id:
+                    with FileChunkIO(source_path, 'r', offset=offset,
+                                     bytes=bytes) as fp:
+                        mp.upload_part_from_file(fp=fp, part_num=part_num)
+                    break
+        except Exception, e:
+            if retries_left:
+                _upload(retries_left=retries_left - 1)
+            else:
+                log.debug('Failed uploading part #%d' % part_num)
+                log.exception(e)
+                raise e
+        else:
+            log.info('Uploaded part #%d' % part_num)
+
+    _upload()
+
+
 class S3():
     def __init__(self):
         try:
@@ -85,7 +119,7 @@ class S3():
             bytes = min([bytes_per_chunk, remaining_bytes])
             part_num = i + 1
             pool.apply_async(
-                self._upload_part,
+                _upload_part,
                 [
                     self.key,
                     self.token,
@@ -118,39 +152,6 @@ class S3():
         else:
             log.error('Upload of %s failed, cancel' % source_path)
             mp.cancel_upload()
-
-    # inspired by
-    # www.topfstedt.de/python-parallel-s3-multipart-upload-with-retries.html
-    def _upload_part(self, aws_key, aws_secret, bucket_name, multipart_id,
-                     part_num, source_path, offset, bytes,
-                     amount_of_retries=10):
-        """
-        Uploads a part with retries.
-        """
-        def _upload(retries_left=amount_of_retries):
-            try:
-                log.info(
-                    'Start uploading part #%d of %s' % (part_num, source_path)
-                )
-                conn = S3Connection(aws_key, aws_secret)
-                bucket = conn.get_bucket(bucket_name)
-                for mp in bucket.get_all_multipart_uploads():
-                    if mp.id == multipart_id:
-                        with FileChunkIO(source_path, 'r', offset=offset,
-                                         bytes=bytes) as fp:
-                            mp.upload_part_from_file(fp=fp, part_num=part_num)
-                        break
-            except Exception, e:
-                if retries_left:
-                    _upload(retries_left=retries_left - 1)
-                else:
-                    log.debug('Failed uploading part #%d' % part_num)
-                    log.exception(e)
-                    raise e
-            else:
-                log.info('Uploaded part #%d' % part_num)
-
-        _upload()
 
 
 class ConfigEntryNotFoundError(Exception):
