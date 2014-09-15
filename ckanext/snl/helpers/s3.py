@@ -2,6 +2,9 @@ from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 from pylons import config
 import os
+import time
+import logging
+log = logging.getLogger(__name__)
 
 
 class S3():
@@ -59,7 +62,24 @@ class S3():
     def upload_file_to_bucket(self, bucket_name, dir_name, filename):
         key = Key(self.bucket)
         key.key = bucket_name + '/' + filename
-        key.set_contents_from_filename(os.path.join(dir_name, filename))
+
+        # try 3 times to upload the file to S3
+        # sometimes it runs in some strange timeouts
+        max_tries = 3
+        for i in range(max_tries):
+            try:
+                key.set_contents_from_filename(
+                    os.path.join(dir_name, filename),
+                    cb=percent_cb
+                )
+                break
+            except Exception, e:
+                if (i == max_tries - 1):
+                    raise
+                log.exception(e)
+                time.sleep(30)
+                continue
+
         # Copy the key onto itself, preserving the
         # ACL but changing the content-type
         key.copy(
@@ -71,6 +91,10 @@ class S3():
                 'Content-Disposition': 'attachment; filename="%s"' % filename
             }
         )
+
+
+def percent_cb(complete, total):
+    log.debug('%i/%i' % (complete, total))
 
 
 class ConfigEntryNotFoundError(Exception):

@@ -105,26 +105,29 @@ class SNLHarvester(HarvesterBase):
 
         metadata_path = self._fetch_metadata_file()
         ids = []
+        try:
+            parser = MetaDataParser(metadata_path)
 
-        parser = MetaDataParser(metadata_path)
+            for dataset in parser.list_datasets():
+                metadata = parser.parse_set(dataset)
+                metadata['translations'].extend(
+                    self._metadata_term_translations()
+                )
 
-        for dataset in parser.list_datasets():
-            metadata = parser.parse_set(dataset)
-            metadata['translations'].extend(self._metadata_term_translations())
+                log.debug(metadata)
 
-            log.debug(metadata)
-
-            obj = HarvestObject(
-                guid=metadata['id'],
-                job=harvest_job,
-                content=json.dumps(metadata)
-            )
-            obj.save()
-            log.debug('adding ' + metadata['id'] + ' to the queue')
-            ids.append(obj.id)
-
-        temp_dir = os.path.dirname(metadata_path)
-        shutil.rmtree(temp_dir)
+                obj = HarvestObject(
+                    guid=metadata['id'],
+                    job=harvest_job,
+                    content=json.dumps(metadata)
+                )
+                obj.save()
+                log.debug('adding ' + metadata['id'] + ' to the queue')
+                ids.append(obj.id)
+        finally:
+            temp_dir = os.path.dirname(metadata_path)
+            log.debug('Deleting directory ' + temp_dir)
+            shutil.rmtree(temp_dir)
 
         return ids
 
@@ -139,19 +142,27 @@ class SNLHarvester(HarvesterBase):
             metadata_prefix = resource['metadata_prefix']
             oai_helper = oai.OAI(bucket_prefix, oai_url, metadata_prefix)
             if resource['type'] == 'oai':
-                record_file_url = oai_helper.export(
-                    package_dict['id'],
-                    append=append,
-                    export_filename=resource['export_filename'],
-                    metadata_prefix=metadata_prefix
-                )
-                log.debug('Record file URL: %s' % record_file_url)
-                resource['url'] = record_file_url
-                resource['size'] = oai_helper.get_size_of_file(
-                    package_dict['id'],
-                    resource['export_filename']
-                )
-                log.debug('Size added to resource.')
+                try:
+                    record_file_url = oai_helper.export(
+                        package_dict['id'],
+                        append=append,
+                        export_filename=resource['export_filename'],
+                        metadata_prefix=metadata_prefix
+                    )
+                    log.debug('Record file URL: %s' % record_file_url)
+                    resource['url'] = record_file_url
+                    resource['size'] = oai_helper.get_size_of_file(
+                        package_dict['id'],
+                        resource['export_filename']
+                    )
+                    log.debug('Size added to resource.')
+                except Exception, e:
+                    log.exception(e)
+                    self._save_object_error(
+                        'Error while exporting oai file: %s' % e,
+                        harvest_object
+                    )
+                    return False
             else:
                 try:
                     resource['size'] = oai_helper.get_size_of_file(
@@ -175,6 +186,7 @@ class SNLHarvester(HarvesterBase):
 
         if not harvest_object:
             log.error('No harvest object received')
+            self._save_object_error('No harvest object received')
             return False
 
         try:
@@ -227,7 +239,11 @@ class SNLHarvester(HarvesterBase):
             log.debug('Importing finished.')
         except Exception, e:
             log.exception(e)
-            raise e
+            self._save_object_error(
+                'Exception when importing object: %s' % e,
+                harvest_object
+            )
+            return False
         return True
 
     def _find_or_create_groups(self, context):

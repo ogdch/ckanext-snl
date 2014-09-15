@@ -48,7 +48,9 @@ class OAI():
                 outfile.write('<' + wrap + '>\n')
             for filename in filenames:
                 with open(filename) as infile:
-                    outfile.write(infile.read())
+                    for line in infile:
+                        outfile.write(line)
+                    outfile.flush()
             if wrap is not None:
                 outfile.write('</' + wrap + '>')
 
@@ -101,109 +103,119 @@ class OAI():
         temp_dir = tempfile.mkdtemp()
         log.debug('Temporary directory created: %s' % temp_dir)
 
-        if (append and limit is None):
-            log.debug('Copy content from bucket to append new data...')
-            step_files = self._dump_s3_bucket_to_dir(
-                set_name,
-                temp_dir,
-                ignore=[export_filename]
-            )
-            prev_export_file = os.path.join(temp_dir, export_filename)
-            try:
-                step_files.remove(prev_export_file)
-            except ValueError:
-                pass
-
-        log.debug('Params: %s' % params)
-        for header, metadata, about in self.client.listRecords(**params):
-            # check if we use NewBib to add only new entries
-            if (actual_set_name != set_name and set_name != 'NewBib'):
+        try:
+            if (append and limit is None):
+                log.debug('Copy content from bucket to append new data...')
+                step_files = self._dump_s3_bucket_to_dir(
+                    set_name,
+                    temp_dir,
+                    ignore=[export_filename]
+                )
+                prev_export_file = os.path.join(temp_dir, export_filename)
                 try:
-                    xml_namespaces = {
-                        'marc': 'http://www.loc.gov/MARC21/slim',
-                    }
-                    record_type = etree.XPath(
-                        (
-                            ".//marc:datafield[@tag='993']"
-                            "/marc:subfield[@code='a']"
-                        ),
-                        namespaces=xml_namespaces
-                    )
-                    if record_type(metadata)[0].text != set_name:
+                    step_files.remove(prev_export_file)
+                except ValueError:
+                    pass
+
+            log.debug('Params: %s' % params)
+            for header, metadata, about in self.client.listRecords(**params):
+                # check if we use NewBib to add only new entries
+                if (actual_set_name != set_name and set_name != 'NewBib'):
+                    try:
+                        xml_namespaces = {
+                            'marc': 'http://www.loc.gov/MARC21/slim',
+                        }
+                        record_type = etree.XPath(
+                            (
+                                ".//marc:datafield[@tag='993']"
+                                "/marc:subfield[@code='a']"
+                            ),
+                            namespaces=xml_namespaces
+                        )
+                        if record_type(metadata)[0].text != set_name:
+                            log.debug(
+                                'Record does not belong to set %s'
+                                % set_name
+                            )
+                            continue
+                    except (IndexError, TypeError):
                         log.debug(
-                            'Record does not belong to set %s'
-                            % set_name
+                            'Record does not belong to set %s' %
+                            (set_name)
                         )
                         continue
-                except IndexError:
-                    log.debug('Record does not belong to set %s' % set_name)
-                    continue
 
-            count += 1
-            today = datetime.date.today().strftime("%Y-%m-%d")
-            log.debug(
-                'Fetching record %s from set %s: %s'
-                % (count, set_name, header.identifier())
-            )
-
-            # save record as XML file
-            newRecord = etree.Element("record")
-            if metadata_prefix == 'marcxml':
-                newRecord.append(metadata)
-            else:
-                self.registry.writeMetadata(
-                    metadata_prefix,
-                    newRecord,
-                    metadata
+                count += 1
+                today = datetime.date.today().strftime("%Y-%m-%d")
+                log.debug(
+                    'Fetching record %s from set %s: %s'
+                    % (count, set_name, header.identifier())
                 )
-            tree = etree.ElementTree(newRecord)
-            filename = os.path.join(temp_dir, header.identifier() + '.xml')
-            filenames.append(filename)
-            tree.write(filename, pretty_print=True)
 
-            if (count % 500 == 0):
+                # save record as XML file
+                newRecord = etree.Element("record")
+                if metadata_prefix == 'marcxml':
+                    newRecord.append(metadata)
+                else:
+                    self.registry.writeMetadata(
+                        metadata_prefix,
+                        newRecord,
+                        metadata
+                    )
+                tree = etree.ElementTree(newRecord)
+                filename = os.path.join(temp_dir, header.identifier() + '.xml')
+                filenames.append(filename)
+                tree.write(filename, pretty_print=True)
+
+                if (count % 500 == 0):
+                    log.debug('Create step file %s' % count)
+                    step_files.append(
+                        self._create_step_file(
+                            str(count) + '_' + today,
+                            temp_dir,
+                            set_name, filenames
+                        )
+                    )
+                    filenames = []
+
+                if (limit is not None and count >= limit):
+                    break
+
+            if filenames:
+                today = datetime.date.today().strftime("%Y-%m-%d")
                 log.debug('Create step file %s' % count)
                 step_files.append(
                     self._create_step_file(
                         str(count) + '_' + today,
                         temp_dir,
-                        set_name, filenames
+                        set_name,
+                        filenames
                     )
                 )
-                filenames = []
 
-            if (limit is not None and count >= limit):
-                break
+            if (limit is not None):
+                return step_files
 
-        if filenames:
-            today = datetime.date.today().strftime("%Y-%m-%d")
-            log.debug('Create step file %s' % count)
-            step_files.append(
-                self._create_step_file(
-                    str(count) + '_' + today,
-                    temp_dir,
-                    set_name,
-                    filenames
+            record_filename = os.path.join(temp_dir, export_filename)
+            log.debug('Record file: %s' % record_filename)
+            self._concatenate_xml_files(record_filename, step_files)
+
+            if (append):
+                log.debug('Uploading dir %s to S3' % temp_dir)
+                self._upload_dir_content_to_s3(set_name, temp_dir)
+            else:
+                log.debug(
+                    'Uploading %s from %s to S3'
+                    % (export_filename, temp_dir)
                 )
-            )
-
-        if (limit is not None):
-            return step_files
-
-        record_filename = os.path.join(temp_dir, export_filename)
-        log.debug('Record file: %s' % record_filename)
-        self._concatenate_xml_files(record_filename, step_files)
-
-        if (append):
-            log.debug('Uploading dir %s to S3' % temp_dir)
-            self._upload_dir_content_to_s3(set_name, temp_dir)
-        else:
-            log.debug(
-                'Uploading %s from %s to S3'
-                % (export_filename, temp_dir)
-            )
-            self._upload_file_to_s3(set_name, temp_dir, export_filename)
-        shutil.rmtree(temp_dir)
+                self._upload_file_to_s3(set_name, temp_dir, export_filename)
+        finally:
+            log.debug('Deleting directory ' + temp_dir)
+            try:
+                shutil.rmtree(temp_dir)
+            except Exception, e:
+                log.exception(e)
+                pass
 
         return self._get_url_of_file(set_name, export_filename)
 
@@ -214,7 +226,11 @@ class OAI():
             )
             self._concatenate_xml_files(step_file, filenames, wrap=None)
             for filename in filenames:
-                os.remove(filename)
+                try:
+                    os.remove(filename)
+                    log.debug('Deleted file %s' % (filename))
+                except OSError:
+                    log.debug('Could not delete file %s' % (filename))
             return step_file
 
     def resume_export(self, set_name, append, count, limit):
