@@ -1,8 +1,9 @@
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
+from filechunkio import FileChunkIO
 from pylons import config
+import math
 import os
-import time
 import logging
 log = logging.getLogger(__name__)
 
@@ -63,38 +64,66 @@ class S3():
         key = Key(self.bucket)
         key.key = bucket_name + '/' + filename
 
-        # try 3 times to upload the file to S3
-        # sometimes it runs in some strange timeouts
-        max_tries = 3
-        for i in range(max_tries):
-            try:
-                key.set_contents_from_filename(
-                    os.path.join(dir_name, filename),
-                    cb=percent_cb
-                )
-                break
-            except Exception, e:
-                if (i == max_tries - 1):
-                    raise
-                log.exception(e)
-                time.sleep(30)
-                continue
-
-        # Copy the key onto itself, preserving the
-        # ACL but changing the content-type
-        key.copy(
-            key.bucket,
-            key.name,
-            preserve_acl=True,
-            metadata={
-                'Content-Type': 'binary/octet-stream',
-                'Content-Disposition': 'attachment; filename="%s"' % filename
-            }
+        default_chunk_size = 5242880  # ~5MB
+        source_path = os.path.join(dir_name, filename)
+        source_size = os.stat(source_path).st_size
+        bytes_per_chunk = max(
+            int(math.sqrt(default_chunk_size) * math.sqrt(source_size)),
+            default_chunk_size
         )
+        chunk_amount = int(math.ceil(source_size / float(bytes_per_chunk)))
 
+        mp = self.bucket.initiate_multipart_upload(key.key)
+        for i in range(chunk_amount):
+            offset = i * bytes_per_chunk
+            remaining_bytes = source_size - offset
+            bytes = min([bytes_per_chunk, remaining_bytes])
+            part_num = i + 1
+            self._upload_part(mp, part_num, source_path, offset, bytes)
 
-def percent_cb(complete, total):
-    log.debug('%i/%i' % (complete, total))
+        if len(mp.get_all_parts()) == chunk_amount:
+            mp.complete_upload()
+            # Copy the key onto itself, preserving the
+            # ACL but changing the content-type
+            key.copy(
+                key.bucket,
+                key.name,
+                preserve_acl=True,
+                metadata={
+                    'Content-Type': 'binary/octet-stream',
+                    'Content-Disposition': 'attachment; filename="%s"' %
+                    filename
+                }
+            )
+        else:
+            mp.cancel_upload()
+
+    # inspired by
+    # www.topfstedt.de/python-parallel-s3-multipart-upload-with-retries.html
+    def _upload_part(self, mp, part_num, source_path, offset, bytes,
+                     amount_of_retries=10):
+        """
+        Uploads a part with retries.
+        """
+        def _upload(retries_left=amount_of_retries):
+            try:
+                log.info(
+                    'Start uploading part #%d of %s' % (part_num, source_path)
+                )
+                with FileChunkIO(source_path, 'r', offset=offset,
+                                 bytes=bytes) as fp:
+                    mp.upload_part_from_file(fp=fp, part_num=part_num)
+            except Exception, e:
+                if retries_left:
+                    _upload(retries_left=retries_left - 1)
+                else:
+                    log.debug('Failed uploading part #%d' % part_num)
+                    log.exception(e)
+                    raise e
+            else:
+                log.debug('Uploaded part #%d' % part_num)
+
+        _upload()
 
 
 class ConfigEntryNotFoundError(Exception):
