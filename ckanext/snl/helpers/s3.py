@@ -139,13 +139,23 @@ class S3():
         pool.close()
         pool.join()
 
-        if len(mp.get_all_parts()) == chunk_amount:
+        uploaded_chunk_amount = len(mp.get_all_parts())
+
+        if uploaded_chunk_amount == chunk_amount:
             mp.complete_upload()
             log.info('Upload of %s completed' % source_path)
         else:
             log.error('Upload of %s failed, cancel' % source_path)
             mp.cancel_upload()
+            raise UploadIncompleteError(
+                "Only %d of %d chunks could be uploaded for file %s"
+                % (uploaded_chunk_amount, chunk_amount, filename)
+            )
 
 
 class ConfigEntryNotFoundError(Exception):
+    pass
+
+
+class UploadIncompleteError(Exception):
     pass
