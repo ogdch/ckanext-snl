@@ -1,6 +1,7 @@
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 from filechunkio import FileChunkIO
+from multiprocessing import Pool
 from pylons import config
 import math
 import os
@@ -60,7 +61,8 @@ class S3():
         for filename in os.listdir(dir_name):
             self.upload_file_to_bucket(bucket_name, dir_name, filename)
 
-    def upload_file_to_bucket(self, bucket_name, dir_name, filename):
+    def upload_file_to_bucket(self, bucket_name, dir_name, filename,
+                              parallel_processes=4):
         key = Key(self.bucket)
         key.key = bucket_name + '/' + filename
 
@@ -74,12 +76,27 @@ class S3():
         chunk_amount = int(math.ceil(source_size / float(bytes_per_chunk)))
 
         mp = self.bucket.initiate_multipart_upload(key.key)
+        pool = Pool(processes=parallel_processes)
         for i in range(chunk_amount):
             offset = i * bytes_per_chunk
             remaining_bytes = source_size - offset
             bytes = min([bytes_per_chunk, remaining_bytes])
             part_num = i + 1
-            self._upload_part(mp, part_num, source_path, offset, bytes)
+            pool.apply_async(
+                self._upload_part,
+                [
+                    self.key,
+                    self.token,
+                    self.bucket_name,
+                    mp.id,
+                    part_num,
+                    source_path,
+                    offset,
+                    bytes
+                ]
+            )
+        pool.close()
+        pool.join()
 
         if len(mp.get_all_parts()) == chunk_amount:
             mp.complete_upload()
@@ -100,7 +117,8 @@ class S3():
 
     # inspired by
     # www.topfstedt.de/python-parallel-s3-multipart-upload-with-retries.html
-    def _upload_part(self, mp, part_num, source_path, offset, bytes,
+    def _upload_part(self, aws_key, aws_secret, bucket_name, multipart_id,
+                     part_num, source_path, offset, bytes,
                      amount_of_retries=10):
         """
         Uploads a part with retries.
@@ -110,9 +128,14 @@ class S3():
                 log.info(
                     'Start uploading part #%d of %s' % (part_num, source_path)
                 )
-                with FileChunkIO(source_path, 'r', offset=offset,
-                                 bytes=bytes) as fp:
-                    mp.upload_part_from_file(fp=fp, part_num=part_num)
+                conn = S3Connection(aws_key, aws_secret)
+                bucket = conn.get_bucket(bucket_name)
+                for mp in bucket.get_all_multipart_uploads():
+                    if mp.id == multipart_id:
+                        with FileChunkIO(source_path, 'r', offset=offset,
+                                         bytes=bytes) as fp:
+                            mp.upload_part_from_file(fp=fp, part_num=part_num)
+                        break
             except Exception, e:
                 if retries_left:
                     _upload(retries_left=retries_left - 1)
