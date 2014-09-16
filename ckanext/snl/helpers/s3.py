@@ -1,10 +1,46 @@
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
+from filechunkio import FileChunkIO
+from multiprocessing import Pool
 from pylons import config
+import math
 import os
-import time
 import logging
 log = logging.getLogger(__name__)
+
+
+# inspired by
+# www.topfstedt.de/python-parallel-s3-multipart-upload-with-retries.html
+def _upload_part(aws_key, aws_secret, bucket_name, multipart_id,
+                 part_num, source_path, offset, bytes,
+                 amount_of_retries=10):
+    """
+    Uploads a part with retries.
+    """
+    def _upload(retries_left=amount_of_retries):
+        try:
+            log.info(
+                'Start uploading part #%d of %s' % (part_num, source_path)
+            )
+            conn = S3Connection(aws_key, aws_secret)
+            bucket = conn.get_bucket(bucket_name)
+            for mp in bucket.get_all_multipart_uploads():
+                if mp.id == multipart_id:
+                    with FileChunkIO(source_path, 'r', offset=offset,
+                                     bytes=bytes) as fp:
+                        mp.upload_part_from_file(fp=fp, part_num=part_num)
+                    break
+        except Exception, e:
+            if retries_left:
+                _upload(retries_left=retries_left - 1)
+            else:
+                log.debug('Failed uploading part #%d' % part_num)
+                log.exception(e)
+                raise e
+        else:
+            log.info('Uploaded part #%d' % part_num)
+
+    _upload()
 
 
 class S3():
@@ -41,6 +77,7 @@ class S3():
             filename = key.name.replace(prefix, '').encode('utf-8')
             if (ignore is not None and filename not in ignore):
                 dump_file = os.path.join(dir_name, filename)
+                log.debug('Dump file %s to %s' % (key.key, dump_file))
                 key.get_contents_to_filename(dump_file)
                 files.append(dump_file)
         return files
@@ -59,43 +96,66 @@ class S3():
         for filename in os.listdir(dir_name):
             self.upload_file_to_bucket(bucket_name, dir_name, filename)
 
-    def upload_file_to_bucket(self, bucket_name, dir_name, filename):
+    def upload_file_to_bucket(self, bucket_name, dir_name, filename,
+                              parallel_processes=4):
         key = Key(self.bucket)
         key.key = bucket_name + '/' + filename
 
-        # try 3 times to upload the file to S3
-        # sometimes it runs in some strange timeouts
-        max_tries = 3
-        for i in range(max_tries):
-            try:
-                key.set_contents_from_filename(
-                    os.path.join(dir_name, filename),
-                    cb=percent_cb
-                )
-                break
-            except Exception, e:
-                if (i == max_tries - 1):
-                    raise
-                log.exception(e)
-                time.sleep(30)
-                continue
-
-        # Copy the key onto itself, preserving the
-        # ACL but changing the content-type
-        key.copy(
-            key.bucket,
-            key.name,
-            preserve_acl=True,
-            metadata={
-                'Content-Type': 'binary/octet-stream',
-                'Content-Disposition': 'attachment; filename="%s"' % filename
-            }
+        default_chunk_size = 5242880  # ~5MB
+        source_path = os.path.join(dir_name, filename)
+        source_size = os.stat(source_path).st_size
+        bytes_per_chunk = max(
+            int(math.sqrt(default_chunk_size) * math.sqrt(source_size)),
+            default_chunk_size
         )
+        chunk_amount = int(math.ceil(source_size / float(bytes_per_chunk)))
+        headers = {
+            'Content-Type': 'binary/octet-stream',
+            'Content-Disposition': 'attachment; filename="%s"' %
+            filename
+        }
 
+        mp = self.bucket.initiate_multipart_upload(key.key, headers=headers)
+        pool = Pool(processes=parallel_processes)
+        log.debug('Start upload of %s' % source_path)
+        for i in range(chunk_amount):
+            offset = i * bytes_per_chunk
+            remaining_bytes = source_size - offset
+            bytes = min([bytes_per_chunk, remaining_bytes])
+            part_num = i + 1
+            pool.apply_async(
+                _upload_part,
+                [
+                    self.key,
+                    self.token,
+                    self.bucket_name,
+                    mp.id,
+                    part_num,
+                    source_path,
+                    offset,
+                    bytes
+                ]
+            )
+        pool.close()
+        pool.join()
 
-def percent_cb(complete, total):
-    log.debug('%i/%i' % (complete, total))
+        uploaded_chunk_amount = len(mp.get_all_parts())
+
+        if uploaded_chunk_amount == chunk_amount:
+            mp.complete_upload()
+            log.info('Upload of %s completed' % source_path)
+        else:
+            log.error('Upload of %s failed, cancel' % source_path)
+            mp.cancel_upload()
+            raise UploadIncompleteError(
+                "Only %d of %d chunks could be uploaded for file %s"
+                % (uploaded_chunk_amount, chunk_amount, filename)
+            )
 
 
 class ConfigEntryNotFoundError(Exception):
+    pass
+
+
+class UploadIncompleteError(Exception):
     pass
