@@ -111,11 +111,9 @@ class OAI():
                     temp_dir,
                     ignore=[export_filename]
                 )
-                prev_export_file = os.path.join(temp_dir, export_filename)
-                try:
-                    step_files.remove(prev_export_file)
-                except ValueError:
-                    pass
+
+                # remove all files that are not step files
+                step_files = [x for x in step_files if x.endswith('.xml_part')]
 
             log.debug('Params: %s' % params)
             for header, metadata, about in self.client.listRecords(**params):
