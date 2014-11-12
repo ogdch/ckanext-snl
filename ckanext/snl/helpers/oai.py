@@ -188,7 +188,7 @@ class OAI():
                     break
                 except Exception, e:
                     log.debug(e)
-                    pass
+                    continue
 
             if filenames:
                 today = datetime.date.today().strftime("%Y-%m-%d")
@@ -224,7 +224,7 @@ class OAI():
                 shutil.rmtree(temp_dir)
             except Exception, e:
                 log.exception(e)
-                continue
+                pass
 
         return self._get_url_of_file(set_name, export_filename)
 
