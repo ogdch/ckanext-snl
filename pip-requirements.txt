@@ -1,6 +1,6 @@
 # This file lists the dependencies of this extension.
 # Install with a command like: pip install -r pip-requirements.txt
-lxml==2.2.4
+lxml==4.6.2
 boto==2.8.0
 filechunkio==1.5
 mock==1.0.1
